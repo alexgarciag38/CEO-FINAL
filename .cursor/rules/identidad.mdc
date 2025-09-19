@@ -1,0 +1,59 @@
+description: |
+  **Identidad Visual CEO Command Center (Blanco y Azul Profesional)**
+
+  Todo el código generado o modificado para el Frontend del CEO Command Center (especialmente los componentes React/TypeScript) debe adherirse estrictamente a la siguiente Guía de Estilo y Principios de Diseño. El objetivo es lograr una interfaz moderna, limpia, intuitiva y profesional, centrada en la claridad y la eficiencia. Se prioriza un diseño 'Blanco y Azul', con un enfoque en la legibilidad y la jerarquía visual.
+
+  **1. Paleta de Colores (Tailwind CSS):**
+  - **Fondo General de la Aplicación/Página:** `bg-gray-50` (`#F9FAFB`) o `bg-white` para el contenedor principal más externo.
+  - **Contenedores de Secciones/Tarjetas (Elementos Elevados):** `bg-white` (`#FFFFFF`) con `shadow-lg` y `border border-gray-100` (`#F3F4F6`).
+  - **Fondo de Sub-Paneles/Agrupamientos Internos (Ligeros):** `bg-gray-50` (`#F9FAFB`) con `rounded-lg` y `border border-gray-200` (`#E5E7EB`).
+  - **Texto Principal (Títulos, Headings):** `text-gray-800` (`#1F2937`).
+  - **Texto Secundario (Labels, descripciones):** `text-gray-600` (`#4B5563`).
+  - **Placeholders/Texto Sutil:** `text-gray-400` (`#9CA3AF`).
+  - **Color Primario (Acciones, Foco, Branding):** `blue-600` (`#2563EB`) para botones principales, `blue-500` (`#3B82F6`) para iconos, enlaces y focos de input.
+  - **Color de Éxito / Ganancia:** `green-600` (`#22C55E`).
+  - **Color de Peligro / Pérdida Neta:** `red-600` (`#DC2626`).
+  - **Color de Advertencia / Inversión:** `orange-500` (`#F97316`).
+  - **Bordes / Separadores:** `border-gray-200` (`#E5E7EB`).
+
+  **2. Tipografía:**
+  - **Familia de Fuentes:** `font-sans` (utiliza la pila de fuentes por defecto de Tailwind CSS).
+  - **Tamaños de Títulos de Página/Módulo:** `text-3xl` o `text-2xl` `font-extrabold` o `font-bold`.
+  - **Títulos de Sección:** `text-xl` o `text-2xl` `font-bold`.
+  - **Subtítulos de Paneles:** `text-lg` o `text-xl` `font-semibold`.
+  - **Textos Regulares:** `text-base` `font-normal`.
+  - **Textos Pequeños (Notas, Fórmulas):** `text-xs` o `text-sm` `text-gray-500`.
+  - **Resultados Numéricos Clave (Ganancia, Totales):** `text-2xl` o `text-3xl` `font-bold`.
+
+  **3. Espaciado y Distribución:**
+  - **Padding General de Contenedores:** `p-6` a `p-8`.
+  - **Margen entre Secciones:** `mt-8` a `my-10`.
+  - **Gap entre Elementos en Grid/Flex:** `gap-4` a `gap-6`.
+  - **Consistencia:** Mantener un ritmo vertical y horizontal consistente.
+
+  **4. Componentes UI Estándar:**
+  - **Inputs de Texto / Numéricos / Selects:**
+    `w-full bg-white border border-gray-300 rounded-md py-2 px-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm`
+    **Labels:** Siempre encima del input, `text-sm font-medium text-gray-700 mb-1`.
+  - **Botones Primarios (Acciones Principales):**
+    `bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-200`
+  - **Botones Secundarios (Acciones Alternativas):**
+    `border border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700 font-semibold py-2 px-4 rounded-md transition-colors duration-200`
+  - **Campos de Solo Lectura (Resultados Intermedios):**
+    `bg-gray-100 text-gray-700 font-semibold text-right py-2 px-3 rounded-md shadow-inner`
+  - **Tarjetas / Paneles:**
+    `bg-white p-5 rounded-xl shadow-md border border-gray-100` (o `bg-gray-50` para sub-paneles).
+  - **Gráficos:**
+    Fondo blanco, ejes y etiquetas en `text-gray-600`, líneas/barras con colores de la paleta definida.
+
+  **5. Jerarquía Visual y Énfasis:**
+  - Los elementos más importantes (Ganancia Neta Final, resultados de escenarios) deben ser más grandes, en negrita y con el color de éxito/peligro correspondiente.
+  - Utiliza `opacity` o `text-gray-400` para elementos menos importantes (ej. instrucciones detalladas).
+  - Los iconos (cohetes, gráficos, etc.) deben ser usados para mejorar la comprensión, no para saturar.
+
+  **6. Consistencia y Mantenimiento:**
+  - Ante cualquier duda, consulta los componentes existentes que ya sigan esta guía.
+  - Prioriza la claridad sobre la complejidad visual. Cada elemento debe tener un propósito.
+globs:
+  - "**/*.{js,jsx,ts,tsx}" # Aplica a todos los archivos JS/TS/React en el proyecto.
+alwaysApply: true

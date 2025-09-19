@@ -1,0 +1,69 @@
+{
+  "platform": "meli_mx",
+  "currency": "MXN",
+  "effectiveFrom": "2024-01-01",
+  "source": "Mercado Libre MX Ayuda - Costos de vender productos",
+  "lastCheckedAt": "2025-09-17",
+  "taxOverrides": { "ivaPct": 0.08, "isrPct": 0.01 },
+  "platformFees": [
+    {
+      "category": "default",
+      "tiers": [ { "minPrice": 299, "commissionPct": 0.165 } ],
+      "variants": {
+        "classic": [
+          { "minPrice": 0, "maxPrice": 99, "commissionPct": 0.165, "fixedFee": 25 },
+          { "minPrice": 99, "maxPrice": 149, "commissionPct": 0.165, "fixedFee": 30 },
+          { "minPrice": 149, "maxPrice": 299, "commissionPct": 0.165, "fixedFee": 37 }
+        ],
+        "premium": [
+          { "minPrice": 0, "maxPrice": 99, "commissionPct": 0.195, "fixedFee": 25 },
+          { "minPrice": 99, "maxPrice": 149, "commissionPct": 0.195, "fixedFee": 30 },
+          { "minPrice": 149, "maxPrice": 299, "commissionPct": 0.195, "fixedFee": 37 }
+        ]
+      },
+      "minCommission": 5
+    },
+    {
+      "category": "automotive_care",
+      "tiers": [ { "minPrice": 299, "commissionPct": 0.13 } ],
+      "variants": {
+        "classic": [
+          { "minPrice": 0, "maxPrice": 99, "commissionPct": 0.13, "fixedFee": 25 },
+          { "minPrice": 99, "maxPrice": 149, "commissionPct": 0.13, "fixedFee": 30 },
+          { "minPrice": 149, "maxPrice": 299, "commissionPct": 0.13, "fixedFee": 37 }
+        ],
+        "premium": [
+          { "minPrice": 0, "maxPrice": 99, "commissionPct": 0.155, "fixedFee": 25 },
+          { "minPrice": 99, "maxPrice": 149, "commissionPct": 0.155, "fixedFee": 30 },
+          { "minPrice": 149, "maxPrice": 299, "commissionPct": 0.155, "fixedFee": 37 }
+        ]
+      },
+      "minCommission": 5
+    },
+    {
+      "category": "electronics",
+      "tiers": [
+        { "minPrice": 35, "maxPrice": 149, "commissionPct": 0.12, "fixedFee": 28 },
+        { "minPrice": 149, "maxPrice": 299, "commissionPct": 0.12, "fixedFee": 33 },
+        { "minPrice": 299, "commissionPct": 0.12 }
+      ],
+      "minCommission": 5
+    },
+    {
+      "category": "fashion",
+      "tiers": [
+        { "minPrice": 35, "maxPrice": 149, "commissionPct": 0.175, "fixedFee": 28 },
+        { "minPrice": 149, "maxPrice": 299, "commissionPct": 0.175, "fixedFee": 33 },
+        { "minPrice": 299, "commissionPct": 0.175 }
+      ],
+      "minCommission": 5
+    }
+  ],
+  "shippingFees": [
+    { "method": "own", "base": 40, "perKg": 10, "dimensionalDivisor": 5000, "subsidyPct": 0 },
+    { "method": "fba_full", "base": 30, "perKg": 9, "dimensionalDivisor": 5000, "subsidyPct": 0.05 },
+    { "method": "carrier_subsidized", "base": 20, "perKg": 7, "dimensionalDivisor": 5000, "subsidyPct": 0.1 }
+  ]
+}
+
+

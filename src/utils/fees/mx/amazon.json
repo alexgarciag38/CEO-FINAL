@@ -1,0 +1,34 @@
+{
+  "platform": "amazon_mx",
+  "currency": "MXN",
+  "effectiveFrom": "2024-01-01",
+  "source": "Amazon Seller Central MX - Referral fees by category",
+  "lastCheckedAt": "2025-09-17",
+  "platformFees": [
+    { "category": "default", "commissionPct": 0.15, "minCommission": 5 },
+    { "category": "automotive_care", "commissionPct": 0.12, "minCommission": 5 },
+    {
+      "category": "electronics",
+      "tiers": [
+        { "minPrice": 0, "maxPrice": 300, "commissionPct": 0.15 },
+        { "minPrice": 300, "commissionPct": 0.08 }
+      ],
+      "minCommission": 5
+    },
+    {
+      "category": "fashion",
+      "tiers": [
+        { "minPrice": 0, "maxPrice": 20, "commissionPct": 0.10 },
+        { "minPrice": 20, "commissionPct": 0.17 }
+      ],
+      "minCommission": 5
+    }
+  ],
+  "shippingFees": [
+    { "method": "own", "base": 45, "perKg": 12, "dimensionalDivisor": 5000, "subsidyPct": 0 },
+    { "method": "fba_full", "base": 35, "perKg": 10, "dimensionalDivisor": 5000, "subsidyPct": 0.05 },
+    { "method": "carrier_subsidized", "base": 25, "perKg": 8, "dimensionalDivisor": 5000, "subsidyPct": 0.1 }
+  ]
+}
+
+

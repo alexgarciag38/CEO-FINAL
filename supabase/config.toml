@@ -1,0 +1,13 @@
+# supabase/config.toml
+# Archivo de configuración principal para el proyecto Supabase CLI.
+
+# Configuración específica de la función asistente-contextual
+[functions.asistente-contextual]
+# El punto de entrada para la función.
+entrypoint = "functions/asistente-contextual/index.ts"
+
+# Opcional: Si quieres que la función verifique JWT por defecto (recomendado para funciones protegidas)
+verify_jwt = true
+
+# Opcional: Habilitar la función (normalmente es true por defecto si no se especifica)
+enabled = true

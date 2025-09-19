@@ -1,0 +1,27 @@
+{
+  "platform": "tiktok_mx",
+  "currency": "MXN",
+  "effectiveFrom": "2024-01-01",
+  "source": "TikTok Shop Seller University - Fees",
+  "lastCheckedAt": "2025-09-17",
+  "platformFees": [
+    { "category": "default", "commissionPct": 0.12, "minCommission": 5 },
+    { "category": "automotive_care", "commissionPct": 0.11, "minCommission": 5 },
+    {
+      "category": "electronics",
+      "tiers": [
+        { "minPrice": 0, "maxPrice": 300, "commissionPct": 0.11 },
+        { "minPrice": 300, "commissionPct": 0.09 }
+      ],
+      "minCommission": 5
+    },
+    { "category": "fashion", "commissionPct": 0.14, "minCommission": 5 }
+  ],
+  "shippingFees": [
+    { "method": "own", "base": 38, "perKg": 9, "dimensionalDivisor": 5000, "subsidyPct": 0.1 },
+    { "method": "fba_full", "base": 28, "perKg": 8, "dimensionalDivisor": 5000, "subsidyPct": 0.15 },
+    { "method": "carrier_subsidized", "base": 18, "perKg": 6, "dimensionalDivisor": 5000, "subsidyPct": 0.2 }
+  ]
+}
+
+

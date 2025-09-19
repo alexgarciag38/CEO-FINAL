@@ -1,0 +1,20 @@
+{
+  "platform": "shein_mx",
+  "currency": "MXN",
+  "effectiveFrom": "2024-01-01",
+  "source": "Public seller docs / estimado",
+  "lastCheckedAt": "2025-09-17",
+  "platformFees": [
+    { "category": "default", "commissionPct": 0.15, "minCommission": 0 },
+    { "category": "fashion", "commissionPct": 0.14, "minCommission": 0 },
+    { "category": "electronics", "commissionPct": 0.10, "minCommission": 0 }
+  ],
+  "shippingFees": [
+    { "method": "own", "base": 35, "perKg": 9, "dimensionalDivisor": 5000, "subsidyPct": 0.05 },
+    { "method": "carrier_subsidized", "base": 25, "perKg": 7, "dimensionalDivisor": 5000, "subsidyPct": 0.1 }
+  ]
+}
+
+
+
+

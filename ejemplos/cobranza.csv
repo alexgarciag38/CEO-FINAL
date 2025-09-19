@@ -1,0 +1,11 @@
+Cliente,FechaPago,Monto,EstadoPago
+Empresa ABC,15/01/2024,15000,Pagado
+Corporación XYZ,20/01/2024,25000,Pagado
+Industrias DEF,25/01/2024,18000,Pendiente
+Comercial GHI,30/01/2024,12000,Pagado
+Distribuidora JKL,05/02/2024,22000,Vencido
+Importadora MNO,10/02/2024,16000,Pagado
+Exportadora PQR,15/02/2024,19000,Pendiente
+Manufacturera STU,20/02/2024,28000,Pagado
+Servicios VWX,25/02/2024,14000,Vencido
+Tecnología YZ,28/02/2024,21000,Pagado 
