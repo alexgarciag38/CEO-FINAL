@@ -1,0 +1,55 @@
+---
+description: |
+  **Reglas Generales y Directrices Estrictas del Proyecto "CEO Command Center"**
+
+  Estas directrices son la base de nuestro proyecto y deben aplicarse en cada fase del desarrollo para asegurar coherencia, calidad y eficiencia.
+
+  **1. Arquitectura y Tecnologías Base:**
+  - **Frontend:** React (usando Vite), TypeScript, Tailwind CSS.
+  - **Backend:** Supabase (PostgreSQL, Edge Functions, Supabase Storage).
+  - **Gestión de Estado/Datos:** `react-query` o `SWR` para fetching, caching y sincronización.
+  - **Autenticación:** Supabase Auth (existente).
+
+  **2. Identidad Visual y UI/UX ("Blanco y Azul Profesional"):**
+  - **Paleta de Colores:**
+    - Primario: Azul (#3B82F6 / blue-500) para interactivos, títulos.
+    - Neutros: Blancos, grises claros (#F9FAFB, #E5E7EB) para fondos, bordes.
+    - Texto: Grises oscuros (#1F2937, #374151).
+    - Estados: Verde (éxito), Naranja (advertencia), Rojo (peligro).
+  - **Tipografía:** Clara y legible (sans-serif, ej. Inter, Roboto). Jerarquía con tamaños y pesos de fuente.
+  - **Espaciado:** Coherente y generoso (clases de Tailwind).
+  - **Componentes:**
+    - Cards: `bg-white p-6 rounded-lg shadow-md border border-gray-100`.
+    - Botones: `bg-blue-600 text-white rounded-md px-4 py-2 hover:bg-blue-700`.
+    - Inputs: `border border-gray-300 rounded-md px-3 py-2`.
+  - **Consistencia:** El estilo debe ser **uniforme en todo el proyecto**.
+
+  **3. Principios de Desarrollo Frontend:**
+  - **Modularidad:** Componentes pequeños, reutilizables y con una única responsabilidad.
+  - **Estado Mínimo:** Mantener el estado lo más local posible.
+  - **Rendimiento:** Optimizar si es necesario.
+  - **Accesibilidad (A11y):** HTML semántico, `aria-*`, navegación por teclado.
+
+  **4. Principios de Desarrollo Backend (Supabase):**
+  - **Atomicidad de Edge Functions:** Una única responsabilidad por función.
+  - **RLS (Row Level Security):** **CRÍTICO:** Implementar políticas de RLS adecuadas en TODAS las tablas. Cada usuario gestiona sus propios datos.
+  - **Validación de Datos:** En frontend y backend.
+  - **Errores y Mensajes:** Respuestas claras de éxito/error.
+
+  **5. Gestión de Datos y Flujo de Trabajo:**
+  - **Separación de Lógica:** Lógica de negocio/fetching separada de la presentación.
+  - **No Mutar Lógica Existente:** **CRÍTICO:** No alterar lógica de negocio, fetching o nombres de variables existentes en otras partes del proyecto sin aprobación explícita.
+  - **Feedback al Usuario:** Loaders, toasts para éxito/error/confirmación.
+  - **Consistencia de Nombres:** `camelCase` para variables, `PascalCase` para componentes, `kebab-case` para CSS.
+
+  **6. Interacción y Pautas de Respuesta (Para el Agente IA / Cursor):**
+  - **Claridad y Concisión:** Respuestas directas y aplicables.
+  - **Desglose:** Tareas complejas desglosadas en partes (Backend, Frontend).
+  - **Justificación:** Propuestas con "por qué" y "beneficios".
+  - **Confirmación:** Pedir confirmación ante instrucciones ambiguas o críticas.
+  - **Adhesión a Reglas:** Referir a estas reglas cuando sea relevante para asegurar el cumplimiento.
+  - **Depuración:** Priorizar la corrección de errores sobre nuevas funcionalidades.
+globs:
+  - "**" # Aplica estas reglas a todos los archivos del proyecto.
+alwaysApply: true
+---

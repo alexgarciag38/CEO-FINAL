@@ -14,7 +14,9 @@ import {
   ChevronRight,
   Menu,
   Building2,
-  Folder
+  Folder,
+  ClipboardList,
+  Wrench
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { NavItem } from '@/types';
@@ -61,6 +63,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: 'Folder'
     },
     {
+      id: 'incidencias',
+      title: 'Incidencias',
+      path: '/incidencias',
+      icon: 'ClipboardList'
+    },
+    {
+      id: 'lean',
+      title: 'Herramientas Lean',
+      path: '/lean',
+      icon: 'Wrench'
+    },
+    {
       id: 'financiero',
       title: 'Financiero',
       path: '/financiero',
@@ -103,7 +117,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     BarChart3,
     PieChart,
     Settings,
-    Folder
+    Folder,
+    ClipboardList,
+    Wrench
   } as const;
 
   const handleSignOut = async () => {
@@ -235,7 +251,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   );
 };
 
-// Mobile sidebar overlay
 export const MobileSidebar: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -244,13 +259,10 @@ export const MobileSidebar: React.FC<{
 
   return (
     <>
-      {/* Overlay */}
       <div 
         className="fixed inset-0 bg-black/50 z-40 lg:hidden"
         onClick={onClose}
       />
-      
-      {/* Sidebar */}
       <div className="fixed inset-y-0 left-0 z-50 w-64 lg:hidden">
         <Sidebar 
           isCollapsed={false} 
@@ -262,7 +274,6 @@ export const MobileSidebar: React.FC<{
   );
 };
 
-// Sidebar toggle button for mobile
 export const SidebarToggle: React.FC<{
   onClick: () => void;
   className?: string;

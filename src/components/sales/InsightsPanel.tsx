@@ -69,7 +69,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({ agentes, totalPedi
   // Si no hay datos, muestra un mensaje
   if (!insights.agenteTopTicket || !insights.agenteTopPedidos) {
     return (
-      <Card className="border-l-4 border-l-blue-500">
+      <Card className="border-l-4 border-l-blue-600">
         <CardHeader className="pb-3">
           <CardTitle className="text-blue-700 text-lg flex items-center gap-2">
             <Brain className="w-5 h-5" />
@@ -86,7 +86,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({ agentes, totalPedi
   }
 
   return (
-    <Card className="border-l-4 border-l-blue-500">
+    <Card className="border-l-4 border-l-blue-600">
       <CardHeader className="pb-3">
         <CardTitle className="text-blue-700 text-lg flex items-center gap-2">
           <Brain className="w-5 h-5" />

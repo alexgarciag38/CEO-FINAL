@@ -62,20 +62,20 @@ export const EnhancedTopList: React.FC<EnhancedTopListProps> = ({
   };
 
   const getItemColor = (position: number, item: any) => {
-    if (position <= 3) return 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200';
+    if (position <= 3) return 'bg-gradient-to-r from-yellow-50 to-orange-50 border-orange-200';
     const performance = item.ventas / averageVentas;
     if (performance > 1.5) return 'bg-green-50 border-green-200';
-    if (performance < 0.5) return 'bg-red-50 border-red-200';
+    if (performance < 0.5) return 'bg-orange-50 border-orange-200';
     return 'bg-gray-50 border-gray-200';
   };
 
   const getProgressColor = (item: any) => {
     const percentage = (item.ventas / maxVentas) * 100;
-    if (percentage > 80) return 'bg-red-500';
-    if (percentage > 60) return 'bg-orange-500';
-    if (percentage > 40) return 'bg-yellow-500';
-    if (percentage > 20) return 'bg-blue-500';
-    return 'bg-green-500';
+    if (percentage > 80) return 'bg-green-600';
+    if (percentage > 60) return 'bg-blue-500';
+    if (percentage > 40) return 'bg-gray-400';
+    if (percentage > 20) return 'bg-gray-300';
+    return 'bg-gray-300';
   };
 
   const formatValue = (value: number) => valueFormat === 'currency' ? `$${value.toLocaleString()}` : value.toLocaleString();
@@ -121,7 +121,7 @@ export const EnhancedTopList: React.FC<EnhancedTopListProps> = ({
                 <div className="text-right">
                   <div className="font-bold text-gray-900">{formatValue(item.ventas)}</div>
                   {vsAverage !== 0 && (
-                    <div className={`text-xs ${vsAverage > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`text-xs ${vsAverage > 0 ? 'text-green-600' : 'text-orange-600'}`}>
                       {vsAverage > 0 ? '+' : ''}{vsAverage.toFixed(1)}% vs promedio
                     </div>
                   )}

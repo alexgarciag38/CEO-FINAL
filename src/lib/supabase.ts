@@ -1,21 +1,45 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 export const enableSignup = String(import.meta.env.VITE_ENABLE_SIGNUP || '').toLowerCase() === 'true';
 export const inviteOnly = String(import.meta.env.VITE_INVITE_ONLY ?? 'true').toLowerCase() === 'true';
 
+// Detect configuration state
+const hasSupabaseEnv = Boolean(supabaseUrl && supabaseAnonKey);
+const isPlaceholderUrl = supabaseUrl === 'https://placeholder.supabase.co' || supabaseUrl === 'TU_URL_DE_SUPABASE_AQUI';
+const isDevelopmentMode = Boolean(import.meta.env.DEV && (!hasSupabaseEnv || isPlaceholderUrl));
 
-
-// Check if we're in development mode with placeholder values
-const isDevelopmentMode = supabaseUrl === 'https://placeholder.supabase.co' || supabaseUrl === 'TU_URL_DE_SUPABASE_AQUI';
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check your .env file and ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.');
+if (!hasSupabaseEnv) {
+  // Do NOT throw on import; keep the app usable in local without backend
+  console.warn('[Config] Supabase env no definidas. Ejecutando en modo desarrollo sin backend.');
 }
 
-// Create Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create Supabase client only when env is present; provide a safe shim otherwise
+export const supabase = hasSupabaseEnv
+  ? createClient(supabaseUrl!, supabaseAnonKey!)
+  : ({
+      auth: {
+        async getSession() {
+          return { data: { session: null }, error: null } as any;
+        },
+        async signInWithPassword() {
+          throw new Error('Auth no disponible sin configuración de Supabase');
+        },
+        async signOut() {
+          return { error: null } as any;
+        },
+        async resetPasswordForEmail() {
+          throw new Error('Reset no disponible sin Supabase');
+        },
+        onAuthStateChange() {
+          return { data: { subscription: { unsubscribe() {} } } } as any;
+        },
+        async signInWithOAuth() {
+          throw new Error('OAuth no disponible sin Supabase');
+        },
+      },
+    } as any);
 
 // Mock authentication for development
 export const mockAuth = {

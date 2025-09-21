@@ -9,35 +9,35 @@ export const SmartAlerts: React.FC<SmartAlertsProps> = ({ data }) => {
   const generateAlerts = (data: any) => {
     const alerts = [];
 
-    // Alerta de cartera crítica
+    // Alerta de cartera crítica (rojo exclusivo)
     if (data?.kpis?.carteraVencida > 50000) {
       alerts.push({
         type: 'critical',
-        icon: <AlertTriangle className="w-5 h-5 text-red-500" />,
+        icon: <AlertTriangle className="w-5 h-5 text-red-600" />,
         title: '🚨 Cartera Crítica',
         message: `$${data.kpis.carteraVencida.toLocaleString()} vencidos = ${Math.ceil(data.kpis.carteraVencida / 3000)} días de cash flow`,
         color: 'border-red-200 bg-red-50'
       });
     }
 
-    // Alerta de margen bajo
+    // Alerta de margen bajo (ámbar)
     if (data?.kpis?.margenBrutoPct < 25) {
       alerts.push({
         type: 'warning',
-        icon: <TrendingDown className="w-5 h-5 text-yellow-500" />,
+        icon: <TrendingDown className="w-5 h-5 text-orange-600" />,
         title: '⚠️ Margen Bajo',
         message: `${data.kpis.margenBrutoPct}% margen (objetivo: 30%+)`,
-        color: 'border-yellow-200 bg-yellow-50'
+        color: 'border-orange-200 bg-orange-50'
       });
     }
 
-    // Oportunidad de producto
+    // Oportunidad de producto (azul)
     if (data?.catalogoProductos?.length > 0) {
       const topProduct = data.catalogoProductos.sort((a: any, b: any) => b.utilidad - a.utilidad)[0];
       if (topProduct && topProduct.utilidad > 50000) {
         alerts.push({
           type: 'opportunity',
-          icon: <Target className="w-5 h-5 text-blue-500" />,
+          icon: <Target className="w-5 h-5 text-blue-600" />,
           title: '💡 Oportunidad',
           message: `${topProduct.descripcion} genera $${topProduct.utilidad.toLocaleString()} de utilidad`,
           color: 'border-blue-200 bg-blue-50'
@@ -53,7 +53,7 @@ export const SmartAlerts: React.FC<SmartAlertsProps> = ({ data }) => {
       if (lowPerformer) {
         alerts.push({
           type: 'warning',
-          icon: <TrendingDown className="w-5 h-5 text-orange-500" />,
+          icon: <TrendingDown className="w-5 h-5 text-orange-600" />,
           title: '📉 Rendimiento Bajo',
           message: `${lowPerformer.agente} solo $${lowPerformer.ventas.toLocaleString()} (vs promedio $${avgVentas.toLocaleString()})`,
           color: 'border-orange-200 bg-orange-50'
@@ -61,12 +61,12 @@ export const SmartAlerts: React.FC<SmartAlertsProps> = ({ data }) => {
       }
     }
 
-    // Cliente top
+    // Cliente top (verde éxito)
     if (data?.clientesTop?.length > 0) {
       const topCliente = data.clientesTop[0];
       alerts.push({
         type: 'success',
-        icon: <TrendingUp className="w-5 h-5 text-green-500" />,
+        icon: <TrendingUp className="w-5 h-5 text-green-600" />,
         title: '👑 Cliente Top',
         message: `${topCliente.cliente} genera $${topCliente.ventas.toLocaleString()} en ventas`,
         color: 'border-green-200 bg-green-50'

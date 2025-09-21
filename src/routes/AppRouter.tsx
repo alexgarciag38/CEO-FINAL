@@ -20,15 +20,18 @@ import { MarketingPage } from '@/pages/marketing/MarketingPage';
 import { CRMPage } from '@/pages/crm/CRMPage';
 import { RRHHPage } from '@/pages/rrhh/RRHHPage';
 import { EstrategicoPage } from '@/pages/estrategico/EstrategicoPage';
+import HerramientasLeanPage from '@/pages/lean/HerramientasLeanPage';
 
 // Settings and profile pages
 import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { ProfilePage } from '@/pages/profile/ProfilePage';
+import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
 
 // Error pages
 import { NotFoundPage } from '@/pages/error/NotFoundPage';
 import DefiSimulatorPage from '@/pages/simulator/DefiSimulatorPage';
 import GestionCatalogo from '@/pages/catalogo/GestionCatalogo';
+import { IncidenciasPage } from '@/pages/incidencias';
 
 export const AppRouter: React.FC = () => {
   return (
@@ -45,6 +48,7 @@ export const AppRouter: React.FC = () => {
                 </PublicRoute>
               }
             />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             {enableSignup && (
               <Route
                 path="/register"
@@ -73,12 +77,14 @@ export const AppRouter: React.FC = () => {
                       <Route path="/crm" element={<CRMPage />} />
                       <Route path="/rrhh" element={<RRHHPage />} />
                       <Route path="/estrategico" element={<EstrategicoPage />} />
+                      <Route path="/lean" element={<HerramientasLeanPage />} />
                       
                       {/* Settings and profile */}
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/profile" element={<ProfilePage />} />
                       <Route path="/simulador/defi" element={<DefiSimulatorPage />} />
                       <Route path="/catalogo" element={<GestionCatalogo />} />
+                      <Route path="/incidencias" element={<IncidenciasPage />} />
                       
                       {/* Default redirect */}
                       <Route path="/" element={<Navigate to="/dashboard" replace />} />

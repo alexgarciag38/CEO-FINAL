@@ -62,16 +62,53 @@ export const EnhancedKPICard: React.FC<EnhancedKPICardProps> = ({
 
   const containerBase = `bg-white rounded-lg shadow-sm border ${compact ? 'p-4' : 'p-6'} card-hover fade-in`;
   const containerColor = `${backgroundClass ? backgroundClass : ''} ${borderClass ? borderClass : ''}`;
+  
+  // Presentational-only helpers for progress + status (no business logic changes)
+  const showProgressBar = (type === 'ventas' && !!average) || (type === 'margen' && typeof secondaryValue === 'number');
+  const progressWidth = (() => {
+    if (type === 'ventas' && average) {
+      return `${Math.min((value / average) * 100, 100)}%`;
+    }
+    if (type === 'margen' && typeof secondaryValue === 'number') {
+      return `${Math.max(0, Math.min(secondaryValue, 100))}%`;
+    }
+    return '0%';
+  })();
+  const progressColor = (() => {
+    if (type === 'ventas' && average) {
+      return value >= average ? 'bg-green-500' : 'bg-blue-500';
+    }
+    if (type === 'margen' && typeof secondaryValue === 'number') {
+      if (secondaryValue >= 30) return 'bg-green-500';
+      if (secondaryValue >= 20) return 'bg-orange-400';
+      return 'bg-red-500';
+    }
+    return 'bg-blue-500';
+  })();
+  const statusMeta = (() => {
+    // Subtle tag-style status aligned with palette
+    if (type === 'cartera' && isCritical) {
+      return { label: 'Cartera crítica', cls: `${compact ? 'text-[10px]' : 'text-xs'} text-red-700 bg-red-100 rounded-full px-2 py-1 font-medium inline-block` };
+    }
+    if (type === 'margen' && typeof secondaryValue === 'number') {
+      if (secondaryValue < 20) return { label: 'Margen crítico', cls: `${compact ? 'text-[10px]' : 'text-xs'} text-red-700 bg-red-100 rounded-full px-2 py-1 font-medium inline-block` };
+      if (secondaryValue < 30) return { label: 'Margen a vigilar', cls: `${compact ? 'text-[10px]' : 'text-xs'} text-orange-700 bg-orange-100 rounded-full px-2 py-1 font-medium inline-block` };
+    }
+    if (type === 'ventas' && average && value < average * 0.9) {
+      return { label: 'Por debajo del objetivo', cls: `${compact ? 'text-[10px]' : 'text-xs'} text-orange-700 bg-orange-100 rounded-full px-2 py-1 font-medium inline-block` };
+    }
+    return null;
+  })();
 
   return (
     <div className={`${containerBase} ${containerColor || colorClasses} ${sizeClasses} ${isCritical ? 'ring-2 ring-red-200 critical-pulse' : ''} ${className}`}>
       {/* Header */}
       <div className={`flex items-center justify-between ${compact ? 'mb-2' : 'mb-4'}`}>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 text-gray-400">
           {icon && <span className="text-base">{icon}</span>}
-          <h3 className={`${compact ? 'text-xs' : 'text-sm'} font-medium text-gray-700`}>{title}</h3>
+          <h3 className={`${compact ? 'text-sm' : 'text-base'} font-semibold text-gray-800`}>{title}</h3>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 text-gray-400">
           {criticalBadge && (
             <span className={`${compact ? 'text-base' : 'text-lg'} animate-pulse`} title="Métrica crítica">
               {criticalBadge}
@@ -93,7 +130,7 @@ export const EnhancedKPICard: React.FC<EnhancedKPICardProps> = ({
               value={value} 
               format={format} 
               duration={1200}
-              className={valueTextClass || (colorClasses.includes('text-red') ? 'text-red-600' : colorClasses.includes('text-yellow') ? 'text-yellow-600' : 'text-green-600')}
+              className={valueTextClass || 'text-gray-800'}
             />
           </div>
           {trendText && (
@@ -131,20 +168,20 @@ export const EnhancedKPICard: React.FC<EnhancedKPICardProps> = ({
         )}
       </div>
 
-      {/* Progress bar for critical metrics */}
-      {isCritical && (
-        <div className={`${compact ? 'mt-2' : 'mt-3'}`}>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-red-500 h-2 rounded-full transition-all duration-300"
-              style={{ 
-                width: `${Math.min((value / (type === 'cartera' ? 80000 : type === 'margen' ? 40 : 800000)) * 100, 100)}%` 
-              }}
-            ></div>
-          </div>
-          <div className={`${compact ? 'text-[10px]' : 'text-xs'} text-red-600 mt-1 font-medium`}>
-            {type === 'cartera' ? 'Cartera crítica' : type === 'margen' ? 'Margen bajo' : 'Ventas bajas'}
-          </div>
+      {/* Progress + status: thinner, neutral background, palette-driven fill */}
+      {(showProgressBar || isCritical || statusMeta) && (
+        <div className={`${compact ? 'mt-2' : 'mt-3'} space-y-1`}>
+          {showProgressBar && (
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className={`h-2 rounded-full transition-all duration-300 ${progressColor}`}
+                style={{ width: progressWidth }}
+              ></div>
+            </div>
+          )}
+          {statusMeta && (
+            <div className={statusMeta.cls}>{statusMeta.label}</div>
+          )}
         </div>
       )}
     </div>

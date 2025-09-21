@@ -436,9 +436,9 @@ export const VentasPage: React.FC = () => {
                      format="currency"
                      icon="💰"
                      average={salesGoal * 0.8}
-                     backgroundClass="bg-blue-50"
-                     borderClass="border-[4px] border-blue-600"
-                     valueTextClass="text-4xl font-black text-blue-600"
+                     backgroundClass="bg-white"
+                     borderClass="border border-gray-200"
+                     valueTextClass="text-4xl font-black text-gray-800"
                      className="md:col-span-3 lg:col-span-2"
                      extraLines={["🎯 MÉTRICA PRINCIPAL", "↗️ +12.5% vs mes anterior | 82% del objetivo"]}
                    />
@@ -451,11 +451,11 @@ export const VentasPage: React.FC = () => {
                      format="currency"
                      icon="📊"
                      backgroundClass="bg-green-50"
-                     borderClass="border-2 border-green-600"
-                     valueTextClass="text-3xl font-bold text-green-600"
+                     borderClass="border border-green-200"
+                     valueTextClass="text-4xl font-bold text-gray-800 tabular-nums"
                      secondaryValue={analisisData?.kpis?.margenBrutoPct || 0}
                      secondaryFormat="percentage"
-                     className="md:col-span-2 lg:col-span-1"
+                     className="md:col-span-2 lg:col-span-2"
                      extraLines={["💰 RENTABILIDAD CLAVE"]}
                    />
                    
@@ -466,9 +466,10 @@ export const VentasPage: React.FC = () => {
                      type="ventas"
                      format="currency"
                      icon="📈"
-                     backgroundClass="bg-purple-100"
-                     borderClass="border-2 border-purple-600"
-                     className="md:col-span-2"
+                     backgroundClass="bg-blue-50"
+                     borderClass="border border-blue-200"
+                     valueTextClass="text-2xl font-bold text-gray-800"
+                     className="md:col-span-1"
                      extraLines={["📈 PROYECCIÓN ESTRATÉGICA", "98.4% probabilidad de cumplir objetivo"]}
                    />
                    
@@ -479,10 +480,11 @@ export const VentasPage: React.FC = () => {
                      type="cartera"
                      format="currency"
                      icon="⚠️"
-                     backgroundClass="bg-red-50"
-                     borderClass="border-2 border-red-600"
-                     valueTextClass="text-red-600"
-                     extraLines={["⚠️ MONITOREAR"]}
+                     backgroundClass="bg-white"
+                     borderClass="border border-gray-200"
+                     className="border-l-4 border-red-500"
+                     valueTextClass="text-gray-800"
+                     extraLines={["MONITOREAR"]}
                    />
  
                    {/* Ticket Promedios - restaurados */}
@@ -492,8 +494,8 @@ export const VentasPage: React.FC = () => {
                      type="ventas"
                      format="currency"
                      icon="🧾"
-                     backgroundClass="bg-gray-100"
-                     borderClass="border border-gray-400"
+                     backgroundClass="bg-white"
+                     borderClass="border border-gray-200"
                      valueTextClass="text-gray-700"
                    />
  
@@ -503,8 +505,8 @@ export const VentasPage: React.FC = () => {
                      type="ventas"
                      format="currency"
                      icon="🏠"
-                     backgroundClass="bg-gray-100"
-                     borderClass="border border-gray-400"
+                     backgroundClass="bg-white"
+                     borderClass="border border-gray-200"
                      valueTextClass="text-gray-700"
                    />
  
@@ -514,8 +516,8 @@ export const VentasPage: React.FC = () => {
                      type="ventas"
                      format="currency"
                      icon="🧳"
-                     backgroundClass="bg-gray-100"
-                     borderClass="border border-gray-400"
+                     backgroundClass="bg-white"
+                     borderClass="border border-gray-200"
                      valueTextClass="text-gray-700"
                    />
  
@@ -525,8 +527,8 @@ export const VentasPage: React.FC = () => {
                      type="ventas"
                      format="currency"
                      icon="🏢"
-                     backgroundClass="bg-gray-100"
-                     borderClass="border border-gray-400"
+                     backgroundClass="bg-white"
+                     borderClass="border border-gray-200"
                      valueTextClass="text-gray-700"
                    />
                  </div>

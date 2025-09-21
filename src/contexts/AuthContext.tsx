@@ -96,10 +96,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
+      // Normalize input to avoid invisible characters or extra spaces
+      const normalizedEmail = (email || '').trim().toLowerCase();
+      const normalizedPassword = (password || '').normalize('NFKC').trim();
       
       if (mockAuth.isDevelopmentMode) {
         // Development mode
-        const { data, error } = await devAuth.signIn(email, password);
+        const { data, error } = await devAuth.signIn(normalizedEmail, normalizedPassword);
         if (error) {
           const userMessage = getAuthErrorMessage(error);
           logAuthError('Development sign in error', error);
@@ -121,8 +124,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         // Production mode
         const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+          email: normalizedEmail,
+          password: normalizedPassword,
         });
         
         if (error) {
