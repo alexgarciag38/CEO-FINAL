@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, getSupabaseWithAuth, getUserOr401, readJson, ok, fail } from "../_shared/mod.ts";
 
-type Body = { name: string; email?: string };
+type Body = { name: string; email?: string; company_id?: string };
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -14,7 +14,7 @@ serve(async (req) => {
     if (!body.name || typeof body.name !== 'string' || body.name.trim().length < 2) {
       return ok({ error: 'Nombre inválido' }, 400);
     }
-    const { data, error: err } = await supabase.from('employees').insert({ name: body.name.trim(), email: body.email ?? null }).select('*').single();
+    const { data, error: err } = await supabase.from('employees').insert({ name: body.name.trim(), email: body.email ?? null, company_id: body.company_id ?? null }).select('*').single();
     if (err) throw err;
     return ok({ item: data });
   } catch (e) {

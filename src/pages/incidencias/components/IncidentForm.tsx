@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getStatusOptions } from '@/config/incidentConfig';
+import { useCompany } from '@/contexts/CompanyContext';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { invoke } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 interface Props { onCreated?: () => void; id?: string }
 
 export const IncidentForm: React.FC<Props> = ({ onCreated }) => {
+  const { companyId } = useCompany();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'low'|'medium'|'high'|'critical'>('medium');
@@ -31,15 +33,15 @@ export const IncidentForm: React.FC<Props> = ({ onCreated }) => {
     const load = async () => {
       try {
         const [t, e] = await Promise.all([
-          invoke<any>('incident-types-get', { body: { all: true } }),
-          invoke<any>('employees-get', { body: { all: true } })
+          invoke<any>('incident-types-get', { body: { all: true, company_id: companyId } }),
+          invoke<any>('employees-get', { body: { all: true, company_id: companyId } })
         ]);
         setTypes(t?.items ?? []);
         setEmployees(e?.items ?? []);
       } catch (err: any) { setError(err.message || 'Error de carga'); }
     };
     load();
-  }, []);
+  }, [companyId]);
   const statusOptions = getStatusOptions();
 
   const uploadFiles = async (): Promise<string[]> => {
@@ -75,6 +77,7 @@ export const IncidentForm: React.FC<Props> = ({ onCreated }) => {
           incident_type_id: incidentTypeId,
           assigned_to_employee_id: assigneeId,
           attachments_url: attachments,
+          company_id: companyId,
           status
         }
       });

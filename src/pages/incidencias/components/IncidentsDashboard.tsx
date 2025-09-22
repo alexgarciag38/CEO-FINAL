@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber';
 import { invoke } from '@/lib/api';
+import { useCompany } from '@/contexts/CompanyContext';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { DB_TO_STATUS_KEY, STATUS_CHART_COLORS_HEX, STATUS_CONFIG, STATUS_ORDER } from '@/config/incidentConfig';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
@@ -19,6 +20,7 @@ import {
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 export const IncidentsDashboard: React.FC = () => {
+  const { companyId } = useCompany();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,7 +73,7 @@ export const IncidentsDashboard: React.FC = () => {
     const load = async () => {
       setLoading(true); setError(null);
       try {
-        const data = await invoke<any>('incidents-dashboard');
+        const data = await invoke<any>('incidents-dashboard', { body: { company_id: companyId } });
         setKpis(data?.kpis || { open: 0, criticalOpenOrInProgress: 0, avgResolutionDays: 0, resolvedLast7: 0 });
         setByType((data?.byType || []).map((x: any) => ({ name: x.name, count: Number(x.count) })));
         setByPriority((data?.byPriority || []).map((x: any) => ({ priority: x.priority, count: Number(x.count) })));
@@ -86,7 +88,7 @@ export const IncidentsDashboard: React.FC = () => {
       } finally { setLoading(false); }
     };
     load();
-  }, []);
+  }, [companyId]);
 
   const barData = useMemo(() => ({
     labels: byType.map(t => t.name),
@@ -171,9 +173,9 @@ export const IncidentsDashboard: React.FC = () => {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
       {/* KPIs row */}
-      <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
         <Card className="bg-white rounded-lg shadow-md">
           <CardHeader><CardTitle className="text-blue-700">Incidencias Abiertas</CardTitle></CardHeader>
           <CardContent>

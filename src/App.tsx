@@ -2,11 +2,14 @@ import React from 'react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppRouter } from './routes/AppRouter';
 import './App.css';
+import { CompanyProvider } from '@/contexts/CompanyContext';
 
 function App() {
   return (
     <ErrorBoundary>
-      <AppRouter />
+      <CompanyProvider>
+        <AppRouter />
+      </CompanyProvider>
     </ErrorBoundary>
   );
 }

@@ -28,10 +28,10 @@ export const GestorIncidencias: React.FC = () => {
       }} />
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <CardTitle className="text-blue-700">Centro de Incidencias</CardTitle>
-            <div className="flex gap-2">
-              <Button onClick={() => setTab('create')} className="bg-blue-600 hover:bg-blue-700 text-white">
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button onClick={() => setTab('create')} className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
                 <PlusCircle className="w-4 h-4 mr-2" /> Crear Incidencia
               </Button>
             </div>
@@ -39,20 +39,24 @@ export const GestorIncidencias: React.FC = () => {
         </CardHeader>
         <CardContent>
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid grid-cols-4 w-full">
-              <TabsTrigger value="dashboard" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+            <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] no-scrollbar">
+              <TabsList className="flex w-max gap-2 whitespace-nowrap">
+                <TabsTrigger value="dashboard" className="px-3 py-1 text-sm shrink-0 flex items-center gap-1 whitespace-nowrap truncate overflow-hidden max-w-[160px] leading-tight data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
                 <BarChart3 className="w-4 h-4 mr-2" /> Dashboard
-              </TabsTrigger>
-              <TabsTrigger value="list" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+                </TabsTrigger>
+                <TabsTrigger value="list" className="px-3 py-1 text-sm shrink-0 flex items-center gap-1 whitespace-nowrap truncate overflow-hidden max-w-[160px] leading-tight data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
                 <ClipboardList className="w-4 h-4 mr-2" /> Mis Incidencias
-              </TabsTrigger>
-              <TabsTrigger value="create" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+                </TabsTrigger>
+                {/* Oculto para evitar duplicidad: solo dejamos el botón azul grande del header
+                <TabsTrigger value="create" className="px-3 py-1 text-sm shrink-0 flex items-center gap-1 whitespace-nowrap truncate overflow-hidden max-w-[160px] leading-tight data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
                 <PlusCircle className="w-4 h-4 mr-2" /> Crear Incidencia
-              </TabsTrigger>
-              <TabsTrigger value="config" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+                </TabsTrigger>
+                */}
+                <TabsTrigger value="config" className="px-3 py-1 text-sm shrink-0 flex items-center gap-1 whitespace-nowrap truncate overflow-hidden max-w-[160px] leading-tight data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
                 <Settings className="w-4 h-4 mr-2" /> Configuración
-              </TabsTrigger>
-            </TabsList>
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="dashboard">
               <IncidentsDashboard />

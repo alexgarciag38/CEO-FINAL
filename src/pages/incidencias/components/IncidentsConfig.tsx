@@ -7,8 +7,10 @@ import { invoke } from '@/lib/api';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { isReservedAvatarHex, normalizeHex } from '@/utils/avatarUtils';
+import { useCompany } from '@/contexts/CompanyContext';
 
 export const IncidentsConfig: React.FC = () => {
+  const { companyId } = useCompany();
   const [empName, setEmpName] = useState('');
   const [empEmail, setEmpEmail] = useState('');
   const [typeName, setTypeName] = useState('');
@@ -26,18 +28,18 @@ export const IncidentsConfig: React.FC = () => {
 
   const load = async () => {
     const [e, t] = await Promise.all([
-      invoke<any>('employees-get', { body: { all: true } }),
-      invoke<any>('incident-types-get', { body: { all: true } })
+      invoke<any>('employees-get', { body: { all: true, company_id: companyId } }),
+      invoke<any>('incident-types-get', { body: { all: true, company_id: companyId } })
     ]);
     setEmployees(e?.items ?? []);
     setTypes(t?.items ?? []);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [companyId]);
 
   const addEmployee = async () => {
     if (!empName.trim()) return;
-    await invoke('employees-create', { body: { name: empName.trim(), email: empEmail || undefined } });
+    await invoke('employees-create', { body: { name: empName.trim(), email: empEmail || undefined, company_id: companyId } });
     toast.success('Empleado agregado');
     setEmpName(''); setEmpEmail('');
     await load();
@@ -47,7 +49,7 @@ export const IncidentsConfig: React.FC = () => {
     if (!typeName.trim()) return;
     const colorHex = normalizeHex(typeColor);
     if (isReservedAvatarHex(colorHex)) { setTypeColorWarning('Ese color está reservado para avatares. Elige otro.'); return; }
-    await invoke('incident-types-create', { body: { name: typeName.trim(), description: typeDesc || undefined, color_hex: colorHex } });
+    await invoke('incident-types-create', { body: { name: typeName.trim(), description: typeDesc || undefined, color_hex: colorHex, company_id: companyId } });
     toast.success('Tipo de incidencia agregado');
     setTypeName(''); setTypeDesc(''); setTypeColor('#3B82F6');
     setTypeColorWarning(null);

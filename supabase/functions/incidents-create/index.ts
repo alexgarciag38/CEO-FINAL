@@ -11,6 +11,7 @@ type Body = {
   attachments_url?: string[];
   incident_at?: string; // ISO datetime
   status?: 'open' | 'in_progress' | 'resolved' | 'closed';
+  company_id?: string;
 };
 
 serve(async (req) => {
@@ -37,7 +38,8 @@ serve(async (req) => {
       due_date: body.due_date ?? null,
       incident_type_id: body.incident_type_id,
       assigned_to_employee_id: body.assigned_to_employee_id,
-      attachments_url: Array.isArray(body.attachments_url) ? body.attachments_url : []
+      attachments_url: Array.isArray(body.attachments_url) ? body.attachments_url : [],
+      company_id: body.company_id ?? null
     };
     if (typeof body.incident_at === 'string' && body.incident_at.length > 0) {
       insertPayload.incident_at = body.incident_at;

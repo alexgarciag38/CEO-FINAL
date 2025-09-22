@@ -8,6 +8,7 @@ import { DB_TO_STATUS_KEY, STATUS_KEY_TO_DB, getStatusOptions, PRIORITY_LABELS, 
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { toast } from 'sonner';
 import { StatusTag } from '@/components/StatusTag';
+import { useCompany } from '@/contexts/CompanyContext';
 import { Edit3 } from 'lucide-react';
 
 interface Props { onCreate: () => void; onSelect?: (id: string) => void }
@@ -22,6 +23,7 @@ export const IncidentsList: React.FC<Props> = ({ onCreate, onSelect }) => {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [types, setTypes] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
+  const { companyId, setCompanyId } = useCompany();
   // Priority/Status: UI always shows compact Select (no toggle needed)
 
   const load = async () => {
@@ -35,6 +37,7 @@ export const IncidentsList: React.FC<Props> = ({ onCreate, onSelect }) => {
           type: typeFilter === 'all' ? undefined : typeFilter || undefined,
           assignee: assigneeFilter === 'all' ? undefined : assigneeFilter || undefined,
           priority: priorityFilter === 'all' ? undefined : priorityFilter || undefined,
+          company_id: companyId,
         }
       });
       let arr = data?.items ?? [];
@@ -43,21 +46,21 @@ export const IncidentsList: React.FC<Props> = ({ onCreate, onSelect }) => {
     } catch (e: any) { setError(e.message || 'Error'); } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, [statusFilter, typeFilter, assigneeFilter, priorityFilter]);
+  useEffect(() => { load(); }, [statusFilter, typeFilter, assigneeFilter, priorityFilter, companyId]);
 
   useEffect(() => {
     const loadMeta = async () => {
       try {
         const [t, e] = await Promise.all([
-          invoke<any>('incident-types-get', { body: { all: true } }),
-          invoke<any>('employees-get', { body: { all: true } })
+          invoke<any>('incident-types-get', { body: { all: true, company_id: companyId } }),
+          invoke<any>('employees-get', { body: { all: true, company_id: companyId } })
         ]);
         setTypes(t?.items ?? []);
         setEmployees(e?.items ?? []);
       } catch {}
     };
     loadMeta();
-  }, []);
+  }, [companyId]);
 
   const updateField = async (id: string, patch: Record<string, unknown>) => {
     try {
@@ -76,9 +79,9 @@ export const IncidentsList: React.FC<Props> = ({ onCreate, onSelect }) => {
       <CardContent>
         <div className="flex justify-between items-center py-2 gap-2 flex-wrap">
           <div className="text-blue-700 font-medium">Mis Incidencias</div>
-          <div className="flex items-center gap-2 ml-auto flex-wrap">
+          <div className="flex items-center gap-2 ml-auto flex-wrap w-full sm:w-auto">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[170px]">
+              <SelectTrigger className="w-full sm:w-[170px] h-8 text-xs">
                 <SelectValue placeholder="Filtrar estado" />
               </SelectTrigger>
               <SelectContent>
@@ -89,21 +92,21 @@ export const IncidentsList: React.FC<Props> = ({ onCreate, onSelect }) => {
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[170px]"><SelectValue placeholder="Filtrar tipo" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[170px] h-8 text-xs"><SelectValue placeholder="Filtrar tipo" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tipo</SelectItem>
                 {types.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-              <SelectTrigger className="w-[190px]"><SelectValue placeholder="Filtrar asignado" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[190px] h-8 text-xs"><SelectValue placeholder="Filtrar asignado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Asignado</SelectItem>
                 {employees.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Filtrar prioridad" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[160px] h-8 text-xs"><SelectValue placeholder="Filtrar prioridad" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Prioridad</SelectItem>
                 <SelectItem value="low">Baja</SelectItem>
@@ -112,7 +115,7 @@ export const IncidentsList: React.FC<Props> = ({ onCreate, onSelect }) => {
                 <SelectItem value="critical">Crítica</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={onCreate} className="bg-blue-600 hover:bg-blue-700 text-white">Crear</Button>
+            <Button onClick={onCreate} className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto h-8 text-xs">Crear</Button>
           </div>
         </div>
         {loading && <div className="text-gray-500">Cargando...</div>}

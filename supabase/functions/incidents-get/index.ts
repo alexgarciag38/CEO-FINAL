@@ -8,7 +8,7 @@ serve(async (req) => {
     const { supabase, error } = getSupabaseWithAuth(req);
     if (error) return error;
     await getUserOr401(supabase);
-    let page = 1; let pageSize = 10; let status: string | null = null; let typeId: string | null = null; let assigneeId: string | null = null; let priority: 'low'|'medium'|'high'|'critical' | null = null;
+    let page = 1; let pageSize = 10; let status: string | null = null; let typeId: string | null = null; let assigneeId: string | null = null; let priority: 'low'|'medium'|'high'|'critical' | null = null; let companyId: string | null = null;
     if (req.method === 'GET') {
       const url = new URL(req.url);
       page = Math.max(parseInt(url.searchParams.get('page') || '1'), 1);
@@ -27,6 +27,7 @@ serve(async (req) => {
       assigneeId = body?.assignee ?? null;
       const p = body?.priority;
       priority = (p === 'low' || p === 'medium' || p === 'high' || p === 'critical') ? p : null;
+      companyId = body?.company_id ?? null;
     }
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
@@ -37,6 +38,7 @@ serve(async (req) => {
         incident_type:incident_type_id(id, name, color_hex), assignee:assigned_to_employee_id(id, name)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to);
+    if (companyId) query = query.eq('company_id', companyId);
 
     if (status) query = query.eq('status', status);
     if (typeId) query = query.eq('incident_type_id', typeId);

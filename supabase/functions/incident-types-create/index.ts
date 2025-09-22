@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, getSupabaseWithAuth, getUserOr401, readJson, ok, fail } from "../_shared/mod.ts";
 
-type Body = { name: string; description?: string; color_hex?: string };
+type Body = { name: string; description?: string; color_hex?: string; company_id?: string };
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -15,7 +15,7 @@ serve(async (req) => {
       return ok({ error: 'Nombre inválido' }, 400);
     }
     const color = /^#([0-9a-fA-F]{6})$/.test(body.color_hex || '') ? body.color_hex : '#3B82F6';
-    const { data, error: err } = await supabase.from('incident_types').insert({ name: body.name.trim(), description: body.description ?? null, color_hex: color }).select('*').single();
+    const { data, error: err } = await supabase.from('incident_types').insert({ name: body.name.trim(), description: body.description ?? null, color_hex: color, company_id: body.company_id ?? null }).select('*').single();
     if (err) throw err;
     return ok({ item: data });
   } catch (e) {
