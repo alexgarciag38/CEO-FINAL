@@ -45,10 +45,14 @@ export const IconToggle: React.FC<IconToggleProps> = ({
 }) => {
   const currentOption = options.find(opt => opt.value === value) || options[0];
 
-  const handleClick = () => {
-    const currentIndex = options.findIndex(opt => opt.value === value);
-    const nextIndex = (currentIndex + 1) % options.length;
-    onChange(options[nextIndex].value);
+  const handleClick = (e: React.MouseEvent) => {
+    // COMPORTAMIENTO EXCEL: Un clic NO debe ejecutar la acción
+    // Solo debe seleccionar la celda. La acción se ejecuta con doble clic o Enter
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // NO ejecutar onChange automáticamente
+    // El cambio se ejecutará desde el doble clic o Enter en la celda padre
   };
 
   return (

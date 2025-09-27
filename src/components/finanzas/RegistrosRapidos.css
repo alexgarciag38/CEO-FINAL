@@ -1,95 +1,87 @@
-/* CSS específico para la tabla de Registros Rápidos - ELIMINACIÓN TOTAL DEL SCROLL HORIZONTAL */
+/* CSS específico para la tabla de Registros Rápidos - LAYOUT RESPONSIVO ROBUSTO */
 
-.registro-rapido-table {
-  table-layout: fixed;
-  width: 100%;
-  border-collapse: collapse;
-  /* Asegurar que no haya padding excesivo en los contenedores */
+/* ===== PREVENCIÓN DEL CURSOR DE EDICIÓN GLOBAL ===== */
+/* CRÍTICO: Prevenir cursor de edición fuera de la tabla */
+body {
+  user-select: none !important;
 }
 
-/* Anchos específicos para cada columna - 12 COLUMNAS COMPLETAS - CRÍTICO PARA ELIMINAR SCROLL */
+/* Re-habilitar selección de texto solo para inputs y textareas dentro de la tabla */
+.registro-rapido-container input,
+.registro-rapido-container textarea {
+  user-select: text !important;
+}
+
+.registro-rapido-table {
+  width: 100%;
+  min-width: 1200px; /* Ancho mínimo total razonable para que quepan las columnas */
+  table-layout: fixed;
+  border-collapse: collapse; /* Para un estilo limpio */
+}
+
+/* Definición de Columnas con Anchos Mínimos y Flexibles - LAYOUT RESPONSIVO ROBUSTO */
+
+/* Columnas FIJAS y COMPACTAS */
 .registro-rapido-table th:nth-child(1), 
-.registro-rapido-table td:nth-child(1) { /* MODO */
-  width: 60px; /* Icono toggle */
-  min-width: 60px;
-  max-width: 60px;
+.registro-rapido-table td:nth-child(1) { 
+  width: 50px; /* MODO - Icono toggle */
 }
 
 .registro-rapido-table th:nth-child(2), 
-.registro-rapido-table td:nth-child(2) { /* TIPO */
-  width: 60px; /* Icono toggle I/E */
-  min-width: 60px;
-  max-width: 60px;
-}
-
-.registro-rapido-table th:nth-child(3), 
-.registro-rapido-table td:nth-child(3) { /* CATEGORÍA */
-  width: 100px;
-  min-width: 100px;
-  max-width: 100px;
-}
-
-.registro-rapido-table th:nth-child(4), 
-.registro-rapido-table td:nth-child(4) { /* SUBCATEGORÍA */
-  width: 100px;
-  min-width: 100px;
-  max-width: 100px;
-}
-
-.registro-rapido-table th:nth-child(5), 
-.registro-rapido-table td:nth-child(5) { /* PROVEEDOR */
-  width: 120px; /* Con truncado */
-  min-width: 120px;
-  max-width: 120px;
-}
-
-.registro-rapido-table th:nth-child(6), 
-.registro-rapido-table td:nth-child(6) { /* DESCRIPCIÓN */
-  width: 140px; /* Con truncado */
-  min-width: 140px;
-  max-width: 140px;
-}
-
-.registro-rapido-table th:nth-child(7), 
-.registro-rapido-table td:nth-child(7) { /* MONTO */
-  width: 80px;
-  min-width: 80px;
-  max-width: 80px;
-}
-
-.registro-rapido-table th:nth-child(8), 
-.registro-rapido-table td:nth-child(8) { /* FECHA VENC. */
-  width: 110px;
-  min-width: 110px;
-  max-width: 110px;
-}
-
-.registro-rapido-table th:nth-child(9), 
-.registro-rapido-table td:nth-child(9) { /* DETALLES RECURRENCIA */
-  width: 130px; /* Espacio para resumen */
-  min-width: 130px;
-  max-width: 130px;
-}
-
-.registro-rapido-table th:nth-child(10), 
-.registro-rapido-table td:nth-child(10) { /* ESTADO / FECHA EFECTIVA */
-  width: 120px; /* Espacio para dropdown + datepicker */
-  min-width: 120px;
-  max-width: 120px;
+.registro-rapido-table td:nth-child(2) { 
+  width: 50px; /* TIPO - Icono toggle I/E */
 }
 
 .registro-rapido-table th:nth-child(11), 
-.registro-rapido-table td:nth-child(11) { /* FISCAL */
-  width: 50px;
-  min-width: 50px;
-  max-width: 50px;
+.registro-rapido-table td:nth-child(11) { 
+  width: 60px; /* FISCAL - Checkbox */
 }
 
 .registro-rapido-table th:nth-child(12), 
-.registro-rapido-table td:nth-child(12) { /* ACCIONES */
-  width: 70px; /* Iconos de editar/eliminar */
-  min-width: 70px;
-  max-width: 70px;
+.registro-rapido-table td:nth-child(12) { 
+  width: 80px; /* ACCIONES - Iconos de editar/eliminar */
+}
+
+/* Columnas FLEXIBLES CON MÍNIMOS */
+.registro-rapido-table th:nth-child(3), 
+.registro-rapido-table td:nth-child(3) { 
+  width: 100px; /* CATEGORÍA - Ultra-compacto para liberar espacio */
+}
+
+.registro-rapido-table th:nth-child(4), 
+.registro-rapido-table td:nth-child(4) { 
+  width: 100px; /* SUBCATEGORÍA - Ultra-compacto para liberar espacio */
+}
+
+.registro-rapido-table th:nth-child(5), 
+.registro-rapido-table td:nth-child(5) { 
+  width: 15%; 
+  min-width: 150px; /* PROVEEDOR */
+}
+
+.registro-rapido-table th:nth-child(6), 
+.registro-rapido-table td:nth-child(6) { 
+  width: 60px; /* NOTA - Ultra-compacto para liberar espacio */
+}
+
+.registro-rapido-table th:nth-child(7), 
+.registro-rapido-table td:nth-child(7) { 
+  width: 60px; /* MONTO - Ultra-compacto para liberar espacio */
+}
+
+.registro-rapido-table th:nth-child(8), 
+.registro-rapido-table td:nth-child(8) { 
+  width: 100px; /* FECHA VENC. - Ultra-compacto para liberar espacio */
+}
+
+.registro-rapido-table th:nth-child(9), 
+.registro-rapido-table td:nth-child(9) { 
+  width: 120px; /* DETALLES RECURRENCIA - Ultra-compacto para liberar espacio */
+}
+
+.registro-rapido-table th:nth-child(10), 
+.registro-rapido-table td:nth-child(10) { 
+  width: 70px; /* ESTADO - Ultra-compacto para liberar espacio */
 }
 
 /* Asegurar que los inputs y selects dentro de los td tengan width: 100% y padding reducido */
@@ -121,11 +113,35 @@
   padding: 0.5rem 0.125rem !important; /* px-1 py-2 */
 }
 
-/* Text overflow para campos de texto largos */
+/* Truncado de Texto - PRIMERA LÍNEA DE DEFENSA */
 .registro-rapido-table td input[type="text"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Aplicar truncado a todas las celdas de columnas flexibles */
+.registro-rapido-table td:nth-child(3),
+.registro-rapido-table td:nth-child(4),
+.registro-rapido-table td:nth-child(5),
+.registro-rapido-table td:nth-child(6),
+.registro-rapido-table td:nth-child(7),
+.registro-rapido-table td:nth-child(8),
+.registro-rapido-table td:nth-child(9),
+.registro-rapido-table td:nth-child(10) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Asegurar que los headers no se superpongan */
+.registro-rapido-table th {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  text-align: center; /* Centrar todos los encabezados */
 }
 
 /* Estilos específicos para TableCustomSelect */
@@ -217,10 +233,19 @@
   box-sizing: border-box;
 }
 
-/* Contenedor de la tabla - SIN overflow que recorte dropdowns */
+/* Estilos específicos para la celda de ACCIONES (12ava columna) */
+.registro-rapido-table td:nth-child(12) {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  padding: 0.25rem 0.125rem !important;
+}
+
+/* Contenedor de la tabla - SCROLL HORIZONTAL INTELIGENTE */
 .registro-rapido-container {
   width: 100%;
-  overflow-x: hidden; /* CRÍTICO: No permitir scroll horizontal */
+  overflow-x: auto; /* Activa el scroll horizontal SOLO si el contenido de la tabla es más ancho */
   overflow-y: auto; /* Permitir scroll vertical si es necesario */
   position: relative; /* Para que los dropdowns se posicionen correctamente */
 }
@@ -262,26 +287,85 @@
   position: absolute !important;
 }
 
-/* Responsive: En pantallas muy pequeñas, ajustar anchos */
+/* Responsive: En pantallas muy pequeñas, el scroll horizontal se activa automáticamente */
+@media (max-width: 1200px) {
+  /* El contenedor ya tiene overflow-x: auto, así que el scroll se activará automáticamente */
+  /* cuando el contenido sea más ancho que el viewport */
+  
+  /* Asegurar que los min-width se respeten */
+  .registro-rapido-table {
+    min-width: 1200px; /* Mantener el ancho mínimo total */
+  }
+}
+
+/* En pantallas extremadamente pequeñas, ajustar el ancho mínimo de la tabla */
 @media (max-width: 768px) {
-  .registro-rapido-table th:nth-child(5), 
-  .registro-rapido-table td:nth-child(5) { /* PROVEEDOR */
-    width: 120px;
-    min-width: 120px;
-    max-width: 120px;
+  .registro-rapido-table {
+    min-width: 1000px; /* Reducir ligeramente para pantallas muy pequeñas */
   }
-  
-  .registro-rapido-table th:nth-child(6), 
-  .registro-rapido-table td:nth-child(6) { /* DESCRIPCIÓN */
-    width: 150px;
-    min-width: 150px;
-    max-width: 150px;
-  }
-  
-  .registro-rapido-table th:nth-child(9), 
-  .registro-rapido-table td:nth-child(9) { /* DETALLES RECURRENCIA */
-    width: 120px;
-    min-width: 120px;
-    max-width: 120px;
-  }
+}
+
+/* ===== ESTILOS PARA NAVEGACIÓN POR TECLADO - COMPORTAMIENTO EXCEL ===== */
+
+/* Indicador visual de foco para modo teclado - PERSISTENTE EN TODAS LAS CELDAS */
+.registro-rapido-table td.keyboard-focused {
+  background-color: #f0f9ff !important;
+  border: 2px solid #3b82f6 !important;
+  border-radius: 4px !important;
+  position: relative !important;
+}
+
+/* Estilo para celdas seleccionadas pero NO en modo edición (solo foco visual) */
+.registro-rapido-table td.keyboard-focused:not(.editing) {
+  background-color: #f0f9ff !important;
+  border: 2px solid #3b82f6 !important;
+  border-radius: 4px !important;
+  position: relative !important;
+}
+
+/* Estilo para celdas en modo edición (input activo) */
+.registro-rapido-table td.keyboard-focused.editing {
+  background-color: #ffffff !important;
+  border: 2px solid #10b981 !important;
+  border-radius: 4px !important;
+  position: relative !important;
+}
+
+/* Para inputs de texto - SOLO cuando están en modo edición */
+.registro-rapido-table td.keyboard-focused input:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px #3b82f6 !important;
+}
+
+/* Para los dropdowns - usar el mismo estilo que el focus original */
+.registro-rapido-table td.keyboard-focused .working-select-button {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px #3b82f6 !important;
+}
+
+/* Para los toggles - mantener el foco visual en la celda */
+.registro-rapido-table td.keyboard-focused .icon-toggle-container {
+  background-color: #eff6ff !important;
+}
+
+/* Asegurar que los toggles NO tengan borde cuando están enfocados */
+.registro-rapido-table td.keyboard-focused .icon-toggle-container button {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Para los checkboxes */
+.registro-rapido-table td.keyboard-focused input[type="checkbox"] {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px #3b82f6 !important;
+}
+
+/* Para los botones de acción */
+.registro-rapido-table td.keyboard-focused button {
+  background-color: #eff6ff !important;
+}
+
+/* Asegurar que el foco visual sea visible en todas las celdas */
+.registro-rapido-table td.keyboard-focused * {
+  pointer-events: auto !important;
 }

@@ -44,25 +44,25 @@ export const RecurrencePickerPopover: React.FC<RecurrencePickerPopoverProps> = (
     
     switch (frecuencia) {
       case 'mensual':
-        summary = `Mensual (día ${dia_especifico || 1})`;
+        summary = `Mensual (${dia_especifico || 1})`;
         break;
       case 'semanal':
-        summary = `Semanal (${dia_semana || 'lunes'})`;
+        summary = `Semanal (${(dia_semana || 'lunes').substring(0, 3)})`;
         break;
       case 'quincenal':
         summary = 'Quincenal';
         break;
       case 'anual':
-        summary = `Anual (${dia_especifico || 1}/${new Date(value.fecha_inicio).getMonth() + 1})`;
+        summary = `Anual (${dia_especifico || 1})`;
         break;
     }
 
     if (finalizacion === 'fecha' && value.fecha_fin) {
-      summary += ` - Hasta ${new Date(value.fecha_fin).toLocaleDateString()}`;
+      summary += ` - Hasta ${new Date(value.fecha_fin).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}`;
     } else if (finalizacion === 'repeticiones' && value.numero_repeticiones) {
-      summary += ` - ${value.numero_repeticiones} veces`;
+      summary += ` - ${value.numero_repeticiones}x`;
     } else {
-      summary += ' - Indefinido';
+      summary += ' - ∞';
     }
 
     return summary;
@@ -109,16 +109,32 @@ export const RecurrencePickerPopover: React.FC<RecurrencePickerPopoverProps> = (
       {/* Campo de resumen */}
       <div 
         className="
-          w-full px-3 py-2 text-sm border border-gray-300 rounded-md
+          w-full px-2 py-1 text-xs border border-gray-300 rounded
           bg-white hover:border-gray-400 cursor-pointer
-          flex items-center justify-between
+          flex items-center
         "
         onClick={() => setIsOpen(!isOpen)}
+        style={{ 
+          overflow: 'hidden', 
+          textOverflow: 'ellipsis', 
+          whiteSpace: 'nowrap',
+          maxWidth: '100%'
+        }}
       >
-        <span className="truncate text-gray-700">
+        <span 
+          className="text-gray-700"
+          style={{ 
+            overflow: 'hidden', 
+            textOverflow: 'ellipsis', 
+            whiteSpace: 'nowrap',
+            flex: '1',
+            minWidth: '0'
+          }}
+          title={getSummaryText()}
+        >
           {getSummaryText()}
         </span>
-        <CogIcon />
+        <CogIcon className="w-3 h-3 flex-shrink-0 ml-1" />
       </div>
 
       {/* Popover */}

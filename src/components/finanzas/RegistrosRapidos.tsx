@@ -1,9 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useReducer } from 'react';
 import { supabase } from '@/lib/supabase';
 import TableRow from './TableRow';
 import IconToggle from '@/components/ui/IconToggle';
 import { DocumentIcon, PlusIcon } from '@/components/ui/ProfessionalIcons';
+import { 
+  TableContext, 
+  tableReducer, 
+  initialState,
+  type TableState,
+  type TableAction,
+  type CellCoordinates,
+  type TableContextType
+} from './TableContext';
 import './RegistrosRapidos.css';
+
+// ===== INTERFACES EXISTENTES =====
 
 interface MovimientoRapido {
   id: string;
@@ -46,7 +57,11 @@ interface RegistrosRapidosProps {
   autoAddRow?: boolean;
 }
 
+// ===== COMPONENTE PRINCIPAL =====
+
 const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false }) => {
+  // ===== ESTADO PRINCIPAL =====
+  const [state, dispatch] = useReducer(tableReducer, initialState);
   const [movimientos, setMovimientos] = useState<MovimientoRapido[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([]);
@@ -54,18 +69,23 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Cargar categorías y subcategorías
-  useEffect(() => {
-    loadCategorias('Egreso'); // Cargar categorías de Egreso por defecto
-    loadSubcategorias();
+  // ===== REFERENCIAS =====
+  const cellRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const tableRef = useRef<HTMLTableElement>(null);
+
+  // ===== FUNCIONES DE UTILIDAD =====
+
+  const getCellKey = (rowIndex: number, colIndex: number) => `${rowIndex}-${colIndex}`;
+
+  const registerCellRef = useCallback((rowIndex: number, colIndex: number, element: HTMLElement | null) => {
+    if (element) {
+      cellRefs.current.set(getCellKey(rowIndex, colIndex), element);
+    } else {
+      cellRefs.current.delete(getCellKey(rowIndex, colIndex));
+    }
   }, []);
 
-  // Auto-agregar fila si se especifica
-  useEffect(() => {
-    if (autoAddRow && movimientos.length === 0) {
-      agregarFila();
-    }
-  }, [autoAddRow]);
+  // ===== FUNCIONES DE CARGA DE DATOS =====
 
   const loadCategorias = async (tipo?: 'Ingreso' | 'Egreso') => {
     try {
@@ -74,7 +94,6 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         .select('id, nombre, color, tipo')
         .order('nombre');
 
-      // Filtrar por tipo si se especifica
       if (tipo) {
         query = query.eq('tipo', tipo);
       }
@@ -101,6 +120,8 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
       console.error('Error cargando subcategorías:', error);
     }
   };
+
+  // ===== FUNCIONES DE MOVIMIENTOS =====
 
   const generarId = () => `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -132,7 +153,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     setMovimientos(prev => [...prev, nuevoMovimiento]);
   };
 
-  const actualizarMovimiento = (id: string, field: string, value: any) => {
+  const actualizarMovimiento = useCallback((id: string, field: string, value: any) => {
     console.log('RegistrosRapidos - actualizarMovimiento:', { id, field, value });
     setMovimientos(prev => prev.map(mov => {
       if (mov.id === id) {
@@ -143,7 +164,6 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         if (field === 'modo') {
           if (value === 'Unico') {
             updated.origen = 'unico';
-            // Resetear campos de recurrencia
             updated.frecuencia = 'mensual';
             updated.dia_especifico = 1;
             updated.dia_semana = 'lunes';
@@ -152,7 +172,6 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
             updated.estado_regla = 'Activa';
           } else {
             updated.origen = 'recurrente';
-            // Resetear campos de único
             updated.fecha_movimiento = '';
             updated.fecha_programada = '';
             updated.estado = 'Pendiente';
@@ -164,7 +183,6 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         if (field === 'tipo') {
           updated.categoriaId = '';
           updated.subcategoriaId = '';
-          // Recargar categorías para el nuevo tipo
           loadCategorias(value);
         }
 
@@ -177,16 +195,215 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
       }
       return mov;
     }));
-  };
+  }, []);
 
   const eliminarFila = (id: string) => {
     setMovimientos(prev => prev.filter(mov => mov.id !== id));
   };
 
   const editarFila = (id: string) => {
-    // TODO: Implementar modal de edición detallada
     console.log('Editar fila:', id);
   };
+
+  // ===== MANEJADOR GLOBAL DE EVENTOS KEYDOWN =====
+
+  const handleTableKeyDown = useCallback((event: KeyboardEvent) => {
+    const { key, shiftKey, metaKey, ctrlKey, altKey, target } = event;
+    const { focusedCell, isEditing, activeDropdown, highlightedDropdownOptionIndex } = state;
+
+    console.log('RegistrosRapidos - handleTableKeyDown:', { 
+      key, 
+      focusedCell, 
+      isEditing, 
+      activeDropdown,
+      target: target?.tagName,
+      activeElement: document.activeElement?.tagName 
+    });
+
+    // CRÍTICO #005: Ignorar teclas modificadoras solas
+    if (metaKey || ctrlKey || altKey) {
+      // Permitir combinaciones como Ctrl+C, Ctrl+V, etc. si target es un input
+      if ((target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && (ctrlKey || metaKey)) {
+        return; 
+      }
+      // Si no es un input o no es una combinación específica, ignorar
+      return;
+    }
+
+    // CRÍTICO: Si no hay celda enfocada y no estamos en un dropdown, no hacemos nada (evita edición fantasma)
+    if (!focusedCell && !activeDropdown) return; 
+
+    // Obtener la referencia al elemento DOM activo (input o botón de select)
+    const activeElementRef = focusedCell ? cellRefs.current.get(`${focusedCell.row}-${focusedCell.col}`) : null;
+    const activeInput = activeElementRef instanceof HTMLInputElement ? activeElementRef : null;
+
+    // Bloquear el comportamiento nativo del navegador para las teclas que manejamos
+    const keysToPreventDefault = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape', 'Tab'];
+    if (keysToPreventDefault.includes(key) || (key.length === 1 && focusedCell && !isEditing && !activeDropdown)) {
+      event.preventDefault();
+    }
+
+    // --- Lógica Principal del Reducer Dispatch ---
+    // ORDEN DE PRIORIDAD: Dropdown Abierto > Modo Edición > Celda Seleccionada
+    if (activeDropdown) {
+      // ¡Este bloque es el ÚNICO que debe manejar la navegación dentro de un dropdown abierto!
+      console.log('RegistrosRapidos - Manejando dropdown activo:', { activeDropdown, key });
+      
+      // Obtener la referencia al WorkingSelect activo
+      const dropdownRef = cellRefs.current.get(`${activeDropdown.row}-${activeDropdown.col}`);
+      if (dropdownRef) {
+        // Buscar el WorkingSelect dentro de la celda
+        const workingSelectElement = dropdownRef.querySelector('[data-dropdown]')?.parentElement;
+        if (workingSelectElement && (workingSelectElement as any).handleDropdownKeyDown) {
+          (workingSelectElement as any).handleDropdownKeyDown(event, { state, dispatch });
+          return;
+        }
+      }
+      
+      // Fallback: manejar directamente
+      if (key === 'ArrowUp' || key === 'ArrowDown') {
+        dispatch({ type: 'HIGHLIGHT_DROPDOWN_OPTION', payload: { direction: key.replace('Arrow', '').toLowerCase() as 'up' | 'down' } });
+      } else if (key === 'Enter') {
+        dispatch({ type: 'SELECT_DROPDOWN_OPTION', payload: { value: null } });
+      } else if (key === 'Escape') {
+        dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
+      }
+    } else if (isEditing && activeInput) { // Modo Edición
+      // ¡Este bloque maneja Enter para guardar, Escape para cancelar en inputs!
+      if (key === 'Enter') {
+        dispatch({ type: 'STOP_EDITING', payload: { commit: true } });
+      } else if (key === 'Escape') {
+        dispatch({ type: 'STOP_EDITING', payload: { commit: false } });
+      }
+      // Para el resto de teclas (alfanuméricas), dejar que el input nativo las maneje.
+    } else if (focusedCell) { // Celda Seleccionada (No Editando, No Dropdown Abierto)
+      // ¡Este bloque maneja las transiciones de foco y la entrada en modo edición!
+      if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
+        // Ajustar la navegación hacia abajo para no salirse de los límites
+        let direction = key.replace('Arrow', '').toLowerCase() as 'up' | 'down' | 'left' | 'right';
+        if (direction === 'down' && focusedCell.row >= movimientos.length - 1) {
+          // Si estamos en la última fila, no hacer nada
+          return;
+        }
+        dispatch({ type: 'MOVE_FOCUS', payload: { direction } });
+      } else if (key === 'Enter') {
+        // Decide si START_EDITING (para inputs) o TOGGLE_DROPDOWN (para selects)
+        if (focusedCell.col === 2 || focusedCell.col === 3 || focusedCell.col === 9) { // Columnas de WorkingSelect
+          // COMPORTAMIENTO EXCEL: Enter en dropdown debe abrirlo
+          dispatch({ type: 'TOGGLE_DROPDOWN', payload: focusedCell });
+        } else if (focusedCell.col === 0 || focusedCell.col === 1) { // Columnas de IconToggle
+          handleToggleIconToggle(focusedCell);
+        } else if (focusedCell.col === 10) { // Columna Fiscal (Checkbox)
+          handleToggleCheckbox(focusedCell);
+        } else if (focusedCell.col === 4 || focusedCell.col === 5 || focusedCell.col === 6) { // Columnas de texto/monto
+          dispatch({ type: 'START_EDITING' });
+        }
+      } else if (key.length === 1 && !shiftKey) { // CRÍTICO #007: Type-to-Edit
+        // Si es un input editable, iniciar edición con la tecla
+        if (focusedCell.col === 4 || focusedCell.col === 5 || focusedCell.col === 6) {
+          dispatch({ type: 'SET_EDITING_VALUE', payload: { cell: focusedCell, value: key } });
+          dispatch({ type: 'START_EDITING' });
+        }
+      }
+    }
+  }, [state, movimientos.length]);
+
+  // ===== MANEJADORES DE ACCIONES ESPECÍFICAS =====
+
+  const handleToggleIconToggle = useCallback((cell: CellCoordinates) => {
+    const movimiento = movimientos[cell.row];
+    if (!movimiento) return;
+
+    if (cell.col === 0) { // MODO toggle
+      const currentValue = movimiento.modo;
+      const newValue = currentValue === 'Unico' ? 'Recurrente' : 'Unico';
+      actualizarMovimiento(movimiento.id, 'modo', newValue);
+    } else if (cell.col === 1) { // TIPO toggle
+      const currentValue = movimiento.tipo;
+      const newValue = currentValue === 'Ingreso' ? 'Egreso' : 'Ingreso';
+      actualizarMovimiento(movimiento.id, 'tipo', newValue);
+    }
+  }, [movimientos, actualizarMovimiento]);
+
+  const handleToggleCheckbox = useCallback((cell: CellCoordinates) => {
+    const movimiento = movimientos[cell.row];
+    if (!movimiento) return;
+
+    if (cell.col === 10) { // FISCAL checkbox
+      const newValue = !movimiento.es_fiscal;
+      actualizarMovimiento(movimiento.id, 'es_fiscal', newValue);
+    }
+  }, [movimientos, actualizarMovimiento]);
+
+  // ===== EFECTOS SECUNDARIOS =====
+
+  // Efecto para manejar cambios en focusedCell
+  useEffect(() => {
+    if (state.focusedCell && state.isEditing) {
+      const { row, col } = state.focusedCell;
+      const cellKey = getCellKey(row, col);
+      const element = cellRefs.current.get(cellKey);
+      
+      if (element) {
+        const input = element.querySelector('input');
+        if (input) {
+          setTimeout(() => {
+            input.focus();
+            if (state.editingValue) {
+              input.value = state.editingValue;
+              input.setSelectionRange(1, 1);
+            }
+          }, 0);
+        }
+      }
+    }
+  }, [state.focusedCell, state.isEditing, state.editingValue]);
+
+  // Efecto para scroll cuando cambia focusedCell
+  useEffect(() => {
+    if (state.focusedCell) {
+      const { row, col } = state.focusedCell;
+      const cellKey = getCellKey(row, col);
+      const element = cellRefs.current.get(cellKey);
+      
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
+    }
+  }, [state.focusedCell]);
+
+  // Efecto para añadir/remover event listeners
+  useEffect(() => {
+    const handleKeyDownWrapper = (event: KeyboardEvent) => handleTableKeyDown(event);
+    
+    document.addEventListener('keydown', handleKeyDownWrapper);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDownWrapper);
+    };
+  }, [handleTableKeyDown]);
+
+  // Efecto para enfocar la primera celda cuando se añade una nueva fila
+  useEffect(() => {
+    if (movimientos.length > 0 && !state.focusedCell) {
+      dispatch({ type: 'SET_FOCUS', payload: { row: 0, col: 0 } });
+    }
+  }, [movimientos.length, state.focusedCell]);
+
+  // Cargar categorías y subcategorías
+  useEffect(() => {
+    loadCategorias('Egreso');
+    loadSubcategorias();
+  }, []);
+
+  // Auto-agregar fila si se especifica
+  useEffect(() => {
+    if (autoAddRow && movimientos.length === 0) {
+      agregarFila();
+    }
+  }, [autoAddRow]);
+
+  // ===== FUNCIONES DE GUARDADO =====
 
   const guardarMovimientos = async () => {
     if (movimientos.length === 0) {
@@ -198,11 +415,9 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     setError(null);
 
     try {
-      // Separar movimientos únicos y recurrentes
       const movimientosUnicos = movimientos.filter(mov => mov.modo === 'Unico');
       const movimientosRecurrentes = movimientos.filter(mov => mov.modo === 'Recurrente');
 
-      // Guardar movimientos únicos
       if (movimientosUnicos.length > 0) {
         const { data: user } = await supabase.auth.getUser();
         if (!user.user) throw new Error('Usuario no autenticado');
@@ -230,7 +445,6 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         if (errorUnicos) throw errorUnicos;
       }
 
-      // Guardar reglas recurrentes
       if (movimientosRecurrentes.length > 0) {
         for (const mov of movimientosRecurrentes) {
           const { data: user } = await supabase.auth.getUser();
@@ -262,11 +476,8 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         }
       }
 
-      // Limpiar tabla después de guardar
       setMovimientos([]);
       setError(null);
-      
-      // Mostrar mensaje de éxito
       alert('Movimientos guardados exitosamente');
 
     } catch (error) {
@@ -307,154 +518,197 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     await guardarMovimientos();
   };
 
+  // ===== CONTEXT VALUE =====
+  const contextValue: TableContextType = {
+    state,
+    dispatch,
+    cellRefs,
+    tableRef
+  };
+
+  // ===== RENDER =====
   return (
-    <div className="space-y-6">
-      {/* Header del Centro de Registros */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-              <DocumentIcon />
-              Registros Rápidos
-            </h2>
-            <p className="text-gray-600 text-sm mt-1">
-              Crea, edita y elimina Pagos Únicos y Reglas Recurrentes con máxima eficiencia
-            </p>
-          </div>
-          <div className="text-sm text-gray-500">
-            <span className="inline-flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              Modo de Alta Rápida
-            </span>
+    <TableContext.Provider value={contextValue}>
+      <div className="space-y-6">
+        {/* Header del Centro de Registros */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <DocumentIcon />
+                Registros Rápidos
+              </h2>
+              <p className="text-gray-600 text-sm mt-1">
+                Crea, edita y elimina Pagos Únicos y Reglas Recurrentes con máxima eficiencia
+              </p>
+            </div>
+            <div className="text-sm text-gray-500">
+              <span className="inline-flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                Modo de Alta Rápida
+              </span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Controles de la tabla */}
-      <div className="bg-white rounded-lg shadow-sm p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-4">
+        {/* Controles de la tabla */}
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={agregarFila}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+              >
+                <PlusIcon />
+                Agregar Fila
+              </button>
+              <span className="text-sm text-gray-500">
+                {movimientos.length} fila{movimientos.length !== 1 ? 's' : ''}
+              </span>
+            </div>
             <button
-              onClick={agregarFila}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+              onClick={handleGuardar}
+              disabled={saving || movimientos.length === 0}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
-              <PlusIcon />
-              Agregar Fila
+              {saving ? 'Guardando...' : 'Guardar Todos los Cambios'}
             </button>
-            <span className="text-sm text-gray-500">
-              {movimientos.length} fila{movimientos.length !== 1 ? 's' : ''}
-            </span>
           </div>
-          <button
-            onClick={handleGuardar}
-            disabled={saving || movimientos.length === 0}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+
+          {/* Mensaje de error */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-800 text-sm whitespace-pre-line">{error}</p>
+            </div>
+          )}
+
+          {/* Tabla de movimientos - LAYOUT FIXED CON COLGROUP */}
+          <div 
+            className="registro-rapido-container"
+            style={{
+              width: '100%',
+              overflowX: 'auto',
+              overflowY: 'auto',
+              position: 'relative'
+            }}
           >
-            {saving ? 'Guardando...' : 'Guardar Todos los Cambios'}
-          </button>
-        </div>
-
-        {/* Mensaje de error */}
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-800 text-sm whitespace-pre-line">{error}</p>
+            <table 
+              ref={tableRef}
+              className="registro-rapido-table"
+              style={{
+                tableLayout: 'fixed',
+                width: '800px',
+                borderCollapse: 'collapse'
+              }}
+            >
+              <colgroup>
+                <col style={{ width: '50px' }} />
+                <col style={{ width: '50px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '60px' }} />
+                <col style={{ width: '60px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '70px' }} />
+                <col style={{ width: '60px' }} />
+                <col style={{ width: '80px' }} />
+              </colgroup>
+              <thead>
+                <tr className="bg-gray-50 border-b">
+                  <th className="px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    MODO
+                  </th>
+                  <th className="px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    TIPO
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    CATEGORÍA
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    SUBCAT.
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    PROVEEDOR
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    NOTA
+                  </th>
+                  <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    MONTO
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    FECHA VENC.
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    DETALLES REC.
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ESTADO
+                  </th>
+                  <th className="px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    FISCAL
+                  </th>
+                  <th className="px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ACCIONES
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {movimientos.map((movimiento, rowIndex) => (
+                  <TableRow
+                    key={movimiento.id}
+                    movimiento={movimiento}
+                    categorias={categorias}
+                    subcategorias={subcategorias}
+                    onUpdate={actualizarMovimiento}
+                    onDelete={eliminarFila}
+                    onEdit={editarFila}
+                    rowIndex={rowIndex}
+                    registerCellRef={registerCellRef}
+                  />
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
 
-        {/* Tabla de movimientos - SIN SCROLL HORIZONTAL */}
-        <div className="registro-rapido-container">
-          <table className="registro-rapido-table">
-            <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  MODO
-                </th>
-                <th className="px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  TIPO
-                </th>
-                <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  CATEGORÍA
-                </th>
-                <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  SUBCAT.
-                </th>
-                <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  PROVEEDOR
-                </th>
-                <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  DESCRIPCIÓN
-                </th>
-                <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  MONTO
-                </th>
-                <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  FECHA VENC.
-                </th>
-                <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  DETALLES REC.
-                </th>
-                <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ESTADO
-                </th>
-                <th className="px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  FISCAL
-                </th>
-                <th className="px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ACCIONES
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {movimientos.map((movimiento) => (
-                <TableRow
-                  key={movimiento.id}
-                  movimiento={movimiento}
-                  categorias={categorias}
-                  subcategorias={subcategorias}
-                  onUpdate={actualizarMovimiento}
-                  onDelete={eliminarFila}
-                  onEdit={editarFila}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Leyenda de la tabla */}
-        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-          <div className="flex items-center space-x-6 text-sm text-gray-600">
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 rounded-full bg-yellow-100 flex items-center justify-center">
-                <svg className="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
-                </svg>
+          {/* Leyenda de la tabla */}
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center space-x-6 text-sm text-gray-600">
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <svg className="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <span>Movimiento Único</span>
               </div>
-              <span>Movimiento Único</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center">
-                <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center">
+                  <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </div>
+                <span>Regla Recurrente</span>
               </div>
-              <span>Regla Recurrente</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center">
-                <span className="text-green-600 font-bold text-xs">I</span>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center">
+                  <span className="text-green-600 font-bold text-xs">I</span>
+                </div>
+                <span>Ingreso</span>
               </div>
-              <span>Ingreso</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 rounded-full bg-red-100 flex items-center justify-center">
-                <span className="text-red-600 font-bold text-xs">E</span>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 rounded-full bg-red-100 flex items-center justify-center">
+                  <span className="text-red-600 font-bold text-xs">E</span>
+                </div>
+                <span>Egreso</span>
               </div>
-              <span>Egreso</span>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </TableContext.Provider>
   );
 };
 

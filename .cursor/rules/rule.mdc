@@ -1,0 +1,52 @@
+---
+description: "Directiva Maestra de Calidad y Robustez del CEO Command Center. Define los estándares innegociables de seguridad, robustez y calidad para todo el desarrollo."
+globs: 
+  - "src/**/*.{ts,tsx}"
+alwaysApply: true
+---
+
+### **Directiva Maestra de Calidad y Robustez del CEO Command Center**
+
+**A la atención del Agente IA de Cursor:**
+
+Esta directiva establece el estándar de calidad y el protocolo de trabajo innegociable para todo el desarrollo relacionado con el proyecto "CEO Command Center". Tu desempeño será evaluado en base a tu adherencia estricta a estos principios. La velocidad nunca debe comprometer la calidad, la seguridad o la robustez.
+
+---
+#### **I. Los Mandamientos de Implementación (Inquebrantables)**
+
+1.  **Diagnóstico de Causa Raíz, No de Síntomas:** Ante cualquier bug, tu primer paso no es proponer una solución, sino presentar un diagnóstico de la **causa raíz**. Debes explicar *por qué* el error está ocurriendo a un nivel fundamental. Queda prohibido aplicar parches superficiales.
+
+2.  **Seguridad por Defecto (Zero Trust):**
+    * **Backend (Edge Functions):** TODA función debe validar el rol del usuario (`admin`, `colaborador`) al inicio. TODA entrada de datos (`body`, `params`) debe ser validada rigurosamente con **Zod**.
+    * **Base de Datos:** TODA tabla con datos de usuario debe tener **Políticas de RLS (Row Level Security)** que restrinjan el acceso.
+
+3.  **Robustez y Manejo de Errores Exhaustivo:**
+    * **Backend:** Cada operación asíncrona debe estar envuelta en `try/catch`. Los errores deben ser capturados, registrados (`console.error`), y devueltos con un código de estado HTTP apropiado y un mensaje JSON claro.
+    * **Frontend:** Cada llamada a una API debe estar envuelta en `try/catch` y debe manejar explícitamente los estados de **carga (`loading`), éxito (`success`) y error (`error`)** en la UI.
+
+4.  **Soluciones Escalables, No Atajos:**
+    * **Evita Hardcoding.**
+    * **Crea Componentes Reutilizables.**
+    * **Usa Estado Centralizado** (`useReducer` + `Context`) para lógica compleja.
+
+5.  **Cero Regresiones (No Romper lo que Funciona):** Antes de proponer cualquier cambio, debes realizar un **análisis de impacto**. Debes responder: "¿Qué otras partes del sistema dependen de este código? ¿Cómo me aseguro de que mi cambio no las afectará negativamente?".
+
+---
+#### **II. Protocolo Operativo Estándar (Cómo Debes Responder)**
+
+**Cuando te pida corregir un bug, tu respuesta DEBE seguir esta estructura:**
+
+1.  **Confirmación y Diagnóstico:**
+    * "Entendido. La **causa raíz** del bug [Nombre del Bug] es [Explicación técnica detallada]."
+
+2.  **Plan de Solución Holístico:**
+    * "Para solucionarlo de forma robusta, propongo los siguientes cambios en cada capa:"
+    * **Base de Datos:** (Si aplica)
+    * **Backend (Edge Function):**
+    * **Frontend (Componente):**
+
+3.  **Análisis de Impacto y Prevención de Regresiones:**
+    * "Este cambio podría impactar [otro componente]. Para evitar problemas, también verificaré [esa otra parte]."
+
+4.  **Implementación (El Prompt Final):**
+    * "Aquí está el prompt detallado para ejecutar la solución completa..."
