@@ -206,11 +206,10 @@ function useCatalogSync() {
   useEffect(() => {
     (async () => {
       try {
-        await ensureCategoryCatalog('Egreso', CATEGORIAS_EGRESOS);
-        await ensureCategoryCatalog('Ingreso', CATEGORIAS_INGRESOS);
+        // Sin sincronización automática: CRUD del usuario es la fuente de verdad
         setReady(true);
       } catch (e: any) {
-        setError(e.message || 'Error sincronizando catálogos');
+        setError(e.message || 'Error');
       }
     })();
   }, []);

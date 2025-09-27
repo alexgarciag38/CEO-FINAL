@@ -15,6 +15,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 // Dashboard and module pages (will be created in next phases)
 import { DashboardPage } from '@/pages/dashboard/DashboardPage';
 import { VentasPage } from '@/pages/ventas/VentasPage';
+import { FinanzasModule } from '@/pages/finanzas/FinanzasModule';
 import { FinancieroPage } from '@/pages/financiero/FinancieroPage';
 import { MarketingPage } from '@/pages/marketing/MarketingPage';
 import { CRMPage } from '@/pages/crm/CRMPage';
@@ -71,7 +72,8 @@ export const AppRouter: React.FC = () => {
                       <Route path="/dashboard" element={<DashboardPage />} />
                       
                       {/* Business modules */}
-                      <Route path="/ventas" element={<VentasPage />} />
+      <Route path="/ventas" element={<VentasPage />} />
+      <Route path="/finanzas" element={<FinanzasModule />} />
                       <Route path="/financiero" element={<FinancieroPage />} />
                       <Route path="/marketing" element={<MarketingPage />} />
                       <Route path="/crm" element={<CRMPage />} />

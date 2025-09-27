@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { EnhancedKPICard } from '@/components/ui/EnhancedKPICard';
+import { AlertTriangle, Target, Lightbulb, Circle, CheckCircle, XCircle } from 'lucide-react';
 
 interface ABCAdvancedData {
   porProducto: Array<{
@@ -228,7 +229,10 @@ export const ABCAdvancedPanel: React.FC<Props> = ({ data }) => {
     <div className="space-y-8">
       {/* Alertas / Hallazgos */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">🚨 Alertas y Hallazgos</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-red-500" />
+          Alertas y Hallazgos
+        </h3>
         {alertas && alertas.length > 0 ? (
           <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
             {alertas.slice(0, 6).map((a, idx) => (
@@ -249,7 +253,7 @@ export const ABCAdvancedPanel: React.FC<Props> = ({ data }) => {
             value={c.ventas}
             type="ventas"
             format="currency"
-            icon={c.clase === 'A' ? '🟢' : c.clase === 'B' ? '🟡' : '🔴'}
+            icon={c.clase === 'A' ? <Circle className="h-5 w-5 text-green-500" /> : c.clase === 'B' ? <Circle className="h-5 w-5 text-yellow-500" /> : <Circle className="h-5 w-5 text-red-500" />}
             backgroundClass={claseColor[c.clase].bg}
             borderClass={claseColor[c.clase].border}
             valueTextClass={`${claseColor[c.clase].text} text-2xl font-extrabold`}
@@ -263,10 +267,16 @@ export const ABCAdvancedPanel: React.FC<Props> = ({ data }) => {
 
       {/* Acciones recomendadas */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">🎯 Acciones recomendadas esta semana</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Target className="h-5 w-5 text-blue-500" />
+          Acciones recomendadas esta semana
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div className="p-4 rounded-lg bg-green-50 border border-green-200">
-            <div className="font-semibold text-green-700 mb-2">🟢 Push inmediato (ROI alto)</div>
+            <div className="font-semibold text-green-700 mb-2 flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              Push inmediato (ROI alto)
+            </div>
             <ul className="space-y-1">
               {acciones.pushInmediato.slice(0, 4).map((p, i) => (
                 <li key={i} className="flex justify-between">
@@ -277,7 +287,10 @@ export const ABCAdvancedPanel: React.FC<Props> = ({ data }) => {
             </ul>
           </div>
           <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-200">
-            <div className="font-semibold text-yellow-700 mb-2">🟡 Investigar (Problemas)</div>
+            <div className="font-semibold text-yellow-700 mb-2 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Investigar (Problemas)
+            </div>
             <ul className="space-y-1">
               {acciones.investigar.slice(0, 4).map((p, i) => (
                 <li key={i} className="flex justify-between">
@@ -288,7 +301,10 @@ export const ABCAdvancedPanel: React.FC<Props> = ({ data }) => {
             </ul>
           </div>
           <div className="p-4 rounded-lg bg-red-50 border border-red-200">
-            <div className="font-semibold text-red-700 mb-2">🔴 Acción urgente</div>
+            <div className="font-semibold text-red-700 mb-2 flex items-center gap-2">
+              <XCircle className="h-4 w-4" />
+              Acción urgente
+            </div>
             <ul className="space-y-1">
               {acciones.urgente.slice(0, 3).map((p, i) => (
                 <li key={i} className="flex justify-between">
@@ -356,7 +372,10 @@ export const ABCAdvancedPanel: React.FC<Props> = ({ data }) => {
 
       {/* Top Oportunidades con calculadora y comparaciones */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">💡 Top Oportunidades (detalle)</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Lightbulb className="h-5 w-5 text-yellow-500" />
+          Top Oportunidades (detalle)
+        </h3>
         {renderOportunidadesDetalladas(oportunidades || [])}
       </div>
     </div>

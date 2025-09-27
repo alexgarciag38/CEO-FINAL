@@ -79,6 +79,134 @@ CREATE TABLE IF NOT EXISTS financial_payments_history (
   moved_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- =====================================
+-- Nueva tabla: movimientos_financieros
+-- =====================================
+
+CREATE TABLE IF NOT EXISTS movimientos_financieros (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  tipo TEXT NOT NULL CHECK (tipo IN ('Ingreso','Egreso')),
+  categoria_id UUID REFERENCES categorias_financieras(id) ON DELETE SET NULL,
+  subcategoria_id UUID REFERENCES subcategorias_financieras(id) ON DELETE SET NULL,
+  proveedor_cliente TEXT,
+  descripcion TEXT,
+  monto NUMERIC(15,2) NOT NULL CHECK (monto > 0),
+  fecha_movimiento DATE NOT NULL,
+  fecha_programada DATE,
+  fecha_efectiva DATE,
+  forma_pago TEXT,
+  fiscal BOOLEAN DEFAULT FALSE,
+  notas TEXT,
+  estado TEXT DEFAULT 'Registrado' CHECK (estado IN ('Registrado','Completado','Cancelado')),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Color por categoría para codificación visual en toda la app
+ALTER TABLE IF EXISTS categorias_financieras
+ADD COLUMN IF NOT EXISTS color TEXT;
+
+-- Índices
+CREATE INDEX IF NOT EXISTS idx_mov_fin_usuario ON movimientos_financieros(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_mov_fin_fecha_prog ON movimientos_financieros(fecha_programada);
+CREATE INDEX IF NOT EXISTS idx_mov_fin_tipo_estado ON movimientos_financieros(tipo, estado);
+
+-- =======================
+-- RLS y Políticas seguras
+-- =======================
+ALTER TABLE movimientos_financieros ENABLE ROW LEVEL SECURITY;
+
+-- SELECT
+DROP POLICY IF EXISTS mov_fin_select_admin ON movimientos_financieros;
+CREATE POLICY mov_fin_select_admin ON movimientos_financieros
+  FOR SELECT USING ((auth.jwt() ->> 'role') = 'admin');
+
+DROP POLICY IF EXISTS mov_fin_select_owner ON movimientos_financieros;
+CREATE POLICY mov_fin_select_owner ON movimientos_financieros
+  FOR SELECT USING (usuario_id = auth.uid());
+
+-- INSERT
+DROP POLICY IF EXISTS mov_fin_insert_admin ON movimientos_financieros;
+CREATE POLICY mov_fin_insert_admin ON movimientos_financieros
+  FOR INSERT WITH CHECK ((auth.jwt() ->> 'role') = 'admin');
+
+DROP POLICY IF EXISTS mov_fin_insert_owner ON movimientos_financieros;
+CREATE POLICY mov_fin_insert_owner ON movimientos_financieros
+  FOR INSERT WITH CHECK (usuario_id = auth.uid());
+
+-- UPDATE
+DROP POLICY IF EXISTS mov_fin_update_admin ON movimientos_financieros;
+CREATE POLICY mov_fin_update_admin ON movimientos_financieros
+  FOR UPDATE USING ((auth.jwt() ->> 'role') = 'admin') WITH CHECK ((auth.jwt() ->> 'role') = 'admin');
+
+DROP POLICY IF EXISTS mov_fin_update_owner ON movimientos_financieros;
+CREATE POLICY mov_fin_update_owner ON movimientos_financieros
+  FOR UPDATE USING (usuario_id = auth.uid()) WITH CHECK (usuario_id = auth.uid());
+
+-- DELETE
+DROP POLICY IF EXISTS mov_fin_delete_admin ON movimientos_financieros;
+CREATE POLICY mov_fin_delete_admin ON movimientos_financieros
+  FOR DELETE USING ((auth.jwt() ->> 'role') = 'admin');
+
+DROP POLICY IF EXISTS mov_fin_delete_owner ON movimientos_financieros;
+CREATE POLICY mov_fin_delete_owner ON movimientos_financieros
+  FOR DELETE USING (usuario_id = auth.uid());
+
+-- ==============================
+-- RLS ajustes en catálogos (admin)
+-- ==============================
+ALTER TABLE categorias_financieras ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subcategorias_financieras ENABLE ROW LEVEL SECURITY;
+
+-- SELECT (ambos roles, pero dueño)
+DROP POLICY IF EXISTS categorias_read_own ON categorias_financieras;
+CREATE POLICY categorias_read_own ON categorias_financieras FOR SELECT USING (usuario_id = auth.uid());
+DROP POLICY IF EXISTS subcategorias_read_own ON subcategorias_financieras;
+CREATE POLICY subcategorias_read_own ON subcategorias_financieras FOR SELECT USING (usuario_id = auth.uid());
+
+-- INSERT/UPDATE/DELETE solo admin (y dueño para evitar cross-tenant)
+DROP POLICY IF EXISTS categorias_write_admin ON categorias_financieras;
+CREATE POLICY categorias_write_admin ON categorias_financieras
+  FOR ALL USING ((auth.jwt() ->> 'role') = 'admin' AND usuario_id = auth.uid())
+  WITH CHECK ((auth.jwt() ->> 'role') = 'admin' AND usuario_id = auth.uid());
+
+DROP POLICY IF EXISTS subcategorias_write_admin ON subcategorias_financieras;
+CREATE POLICY subcategorias_write_admin ON subcategorias_financieras
+  FOR ALL USING ((auth.jwt() ->> 'role') = 'admin' AND usuario_id = auth.uid())
+  WITH CHECK ((auth.jwt() ->> 'role') = 'admin' AND usuario_id = auth.uid());
+
+-- ==============================
+-- Unicidad robusta para evitar duplicados
+-- ==============================
+-- Normaliza por lower(trim(nombre)) para evitar duplicados por mayúsculas/espacios
+CREATE UNIQUE INDEX IF NOT EXISTS uq_categorias_usuario_nombre_tipo
+ON categorias_financieras (usuario_id, lower(trim(nombre)), tipo);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_subcategorias_categoria_nombre
+ON subcategorias_financieras (categoria_id, lower(trim(nombre)));
+
+-- Limpieza segura de duplicados existentes (opcional ejecutar una vez)
+-- WITH ranked AS (
+--   SELECT id,
+--          row_number() OVER (
+--            PARTITION BY usuario_id, lower(trim(nombre)), tipo
+--            ORDER BY created_at
+--          ) rn
+--   FROM categorias_financieras
+-- )
+-- DELETE FROM categorias_financieras WHERE id IN (SELECT id FROM ranked WHERE rn > 1);
+
+-- WITH ranked AS (
+--   SELECT id,
+--          row_number() OVER (
+--            PARTITION BY categoria_id, lower(trim(nombre))
+--            ORDER BY created_at
+--          ) rn
+--   FROM subcategorias_financieras
+-- )
+-- DELETE FROM subcategorias_financieras WHERE id IN (SELECT id FROM ranked WHERE rn > 1);
+
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_financial_payments_fecha_programada ON financial_payments (fecha_programada);
 CREATE INDEX IF NOT EXISTS idx_financial_payments_tipo ON financial_payments (tipo);
@@ -272,3 +400,180 @@ DROP POLICY IF EXISTS payments_history_delete_own ON financial_payments_history;
 CREATE POLICY payments_history_delete_own ON financial_payments_history FOR DELETE USING (usuario_id = auth.uid());
 
 -- Comentario: Validar RFC, fechas históricas y reglas adicionales se manejan en frontend y/o funciones
+
+-- Tabla para configuración global del sistema financiero
+CREATE TABLE IF NOT EXISTS configuracion_global (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    clave TEXT NOT NULL,
+    valor TEXT NOT NULL,
+    descripcion TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(usuario_id, clave)
+);
+
+-- Índices para optimización
+CREATE INDEX IF NOT EXISTS idx_configuracion_global_usuario_id ON configuracion_global(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_configuracion_global_clave ON configuracion_global(clave);
+
+-- RLS para configuracion_global
+ALTER TABLE configuracion_global ENABLE ROW LEVEL SECURITY;
+
+-- Políticas RLS para configuracion_global
+CREATE POLICY "admin_puede_ver_todas_configuraciones" ON configuracion_global
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND (auth.users.raw_user_meta_data->>'role' = 'admin' 
+                 OR auth.users.raw_user_meta_data->>'app_role' = 'admin')
+        )
+    );
+
+CREATE POLICY "admin_puede_insertar_configuraciones" ON configuracion_global
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND (auth.users.raw_user_meta_data->>'role' = 'admin' 
+                 OR auth.users.raw_user_meta_data->>'app_role' = 'admin')
+        )
+    );
+
+CREATE POLICY "admin_puede_actualizar_configuraciones" ON configuracion_global
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND (auth.users.raw_user_meta_data->>'role' = 'admin' 
+                 OR auth.users.raw_user_meta_data->>'app_role' = 'admin')
+        )
+    );
+
+CREATE POLICY "admin_puede_eliminar_configuraciones" ON configuracion_global
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND (auth.users.raw_user_meta_data->>'role' = 'admin' 
+                 OR auth.users.raw_user_meta_data->>'app_role' = 'admin')
+        )
+    );
+
+-- Tabla para movimientos recurrentes
+CREATE TABLE IF NOT EXISTS movimientos_recurrentes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    tipo TEXT NOT NULL CHECK (tipo IN ('Ingreso', 'Egreso')),
+    categoria_id UUID REFERENCES categorias_financieras(id) ON DELETE SET NULL,
+    subcategoria_id UUID REFERENCES subcategorias_financieras(id) ON DELETE SET NULL,
+    proveedor_cliente TEXT,
+    descripcion TEXT,
+    monto NUMERIC(15, 2) NOT NULL,
+    forma_pago TEXT,
+    fiscal BOOLEAN DEFAULT FALSE,
+    notas TEXT,
+    frecuencia TEXT NOT NULL CHECK (frecuencia IN ('Diaria', 'Semanal', 'Mensual', 'Trimestral', 'Semestral', 'Anual')),
+    fecha_inicio_serie DATE NOT NULL,
+    fecha_fin_serie DATE,
+    dia_del_mes INTEGER CHECK (dia_del_mes >= 1 AND dia_del_mes <= 31),
+    dia_de_la_semana INTEGER CHECK (dia_de_la_semana >= 0 AND dia_de_la_semana <= 6), -- 0=domingo, 6=sábado
+    activo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Índices para optimización
+CREATE INDEX IF NOT EXISTS idx_movimientos_recurrentes_usuario_id ON movimientos_recurrentes(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_movimientos_recurrentes_activo ON movimientos_recurrentes(activo);
+CREATE INDEX IF NOT EXISTS idx_movimientos_recurrentes_frecuencia ON movimientos_recurrentes(frecuencia);
+CREATE INDEX IF NOT EXISTS idx_movimientos_recurrentes_fecha_inicio ON movimientos_recurrentes(fecha_inicio_serie);
+
+-- RLS para movimientos_recurrentes
+ALTER TABLE movimientos_recurrentes ENABLE ROW LEVEL SECURITY;
+
+-- Políticas RLS para movimientos_recurrentes
+CREATE POLICY "admin_puede_ver_todas_recurrentes" ON movimientos_recurrentes
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND (auth.users.raw_user_meta_data->>'role' = 'admin' 
+                 OR auth.users.raw_user_meta_data->>'app_role' = 'admin')
+        )
+    );
+
+CREATE POLICY "colaborador_puede_ver_sus_recurrentes" ON movimientos_recurrentes
+    FOR SELECT USING (
+        usuario_id = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND (auth.users.raw_user_meta_data->>'role' = 'colaborador' 
+                 OR auth.users.raw_user_meta_data->>'app_role' = 'colaborador')
+        )
+    );
+
+CREATE POLICY "admin_puede_insertar_recurrentes" ON movimientos_recurrentes
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND (auth.users.raw_user_meta_data->>'role' = 'admin' 
+                 OR auth.users.raw_user_meta_data->>'app_role' = 'admin')
+        )
+    );
+
+CREATE POLICY "colaborador_puede_insertar_sus_recurrentes" ON movimientos_recurrentes
+    FOR INSERT WITH CHECK (
+        usuario_id = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND (auth.users.raw_user_meta_data->>'role' = 'colaborador' 
+                 OR auth.users.raw_user_meta_data->>'app_role' = 'colaborador')
+        )
+    );
+
+CREATE POLICY "admin_puede_actualizar_recurrentes" ON movimientos_recurrentes
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND (auth.users.raw_user_meta_data->>'role' = 'admin' 
+                 OR auth.users.raw_user_meta_data->>'app_role' = 'admin')
+        )
+    );
+
+CREATE POLICY "colaborador_puede_actualizar_sus_recurrentes" ON movimientos_recurrentes
+    FOR UPDATE USING (
+        usuario_id = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND (auth.users.raw_user_meta_data->>'role' = 'colaborador' 
+                 OR auth.users.raw_user_meta_data->>'app_role' = 'colaborador')
+        )
+    );
+
+CREATE POLICY "admin_puede_eliminar_recurrentes" ON movimientos_recurrentes
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND (auth.users.raw_user_meta_data->>'role' = 'admin' 
+                 OR auth.users.raw_user_meta_data->>'app_role' = 'admin')
+        )
+    );
+
+CREATE POLICY "colaborador_puede_eliminar_sus_recurrentes" ON movimientos_recurrentes
+    FOR DELETE USING (
+        usuario_id = auth.uid() AND
+        EXISTS (
+            SELECT 1 FROM auth.users 
+            WHERE auth.users.id = auth.uid() 
+            AND (auth.users.raw_user_meta_data->>'role' = 'colaborador' 
+                 OR auth.users.raw_user_meta_data->>'app_role' = 'colaborador')
+        )
+    );

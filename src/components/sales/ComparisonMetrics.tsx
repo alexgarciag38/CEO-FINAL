@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, DollarSign, Package, BarChart3, ClipboardList, Store, User } from 'lucide-react';
 
 interface ComparisonData {
   actual: number;
@@ -83,7 +83,7 @@ export const ComparisonMetrics: React.FC<ComparisonMetricsProps> = ({
       anterior: comparaciones.ventasTotales.anterior,
       variacion: comparaciones.ventasTotales.variacion,
       format: formatCurrency,
-      icon: '💰'
+      icon: <DollarSign className="h-5 w-5" />
     },
     {
       title: 'Unidades Vendidas',
@@ -91,7 +91,7 @@ export const ComparisonMetrics: React.FC<ComparisonMetricsProps> = ({
       anterior: comparaciones.unidadesVendidas.anterior,
       variacion: comparaciones.unidadesVendidas.variacion,
       format: formatNumber,
-      icon: '📦'
+      icon: <Package className="h-5 w-5" />
     },
     {
       title: 'Margen Bruto',
@@ -99,7 +99,7 @@ export const ComparisonMetrics: React.FC<ComparisonMetricsProps> = ({
       anterior: comparaciones.margenBruto.anterior,
       variacion: comparaciones.margenBruto.variacion,
       format: formatCurrency,
-      icon: '📈'
+      icon: <BarChart3 className="h-5 w-5" />
     },
     {
       title: 'Total Pedidos',
@@ -107,7 +107,7 @@ export const ComparisonMetrics: React.FC<ComparisonMetricsProps> = ({
       anterior: comparaciones.totalPedidos.anterior,
       variacion: comparaciones.totalPedidos.variacion,
       format: formatNumber,
-      icon: '📋'
+      icon: <ClipboardList className="h-5 w-5" />
     },
     {
       title: 'Ventas Mostrador',
@@ -115,7 +115,7 @@ export const ComparisonMetrics: React.FC<ComparisonMetricsProps> = ({
       anterior: comparaciones.ventasMostrador.anterior,
       variacion: comparaciones.ventasMostrador.variacion,
       format: formatCurrency,
-      icon: '🏪'
+      icon: <Store className="h-5 w-5" />
     },
     {
       title: 'Ventas con Agente',
@@ -123,7 +123,7 @@ export const ComparisonMetrics: React.FC<ComparisonMetricsProps> = ({
       anterior: comparaciones.ventasConAgente.anterior,
       variacion: comparaciones.ventasConAgente.variacion,
       format: formatCurrency,
-      icon: '👨‍💼'
+      icon: <User className="h-5 w-5" />
     }
   ];
 
@@ -133,7 +133,10 @@ export const ComparisonMetrics: React.FC<ComparisonMetricsProps> = ({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>📊 Comparación de Períodos</span>
+            <span className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Comparación de Períodos
+            </span>
             <span className="text-sm font-normal text-gray-600">
               {getNombreMes(periodoActual.mes)} {periodoActual.anio} {getComparacionLabel()}
             </span>
@@ -147,7 +150,7 @@ export const ComparisonMetrics: React.FC<ComparisonMetricsProps> = ({
           <Card key={index} className="hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
-                <span>{metric.icon}</span>
+                {metric.icon}
                 {metric.title}
               </CardTitle>
             </CardHeader>
@@ -185,7 +188,10 @@ export const ComparisonMetrics: React.FC<ComparisonMetricsProps> = ({
       {/* Resumen de Tendencias */}
       <Card>
         <CardHeader>
-          <CardTitle>📈 Resumen de Tendencias</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            Resumen de Tendencias
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

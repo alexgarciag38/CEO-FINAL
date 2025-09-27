@@ -33,7 +33,20 @@ import {
   CheckCircle,
   XCircle,
   MessageCircle,
-  Calendar
+  Calendar,
+  DollarSign,
+  ClipboardList,
+  Store,
+  User,
+  Trophy,
+  Flame,
+  Building,
+  Briefcase,
+  Crown,
+  Receipt,
+  Home,
+  Briefcase as BriefcaseIcon,
+  Building2
 } from 'lucide-react';
 
 //
@@ -434,13 +447,13 @@ export const VentasPage: React.FC = () => {
                      value={analisisData?.kpis?.ventasTotales || 0}
                      type="ventas"
                      format="currency"
-                     icon="💰"
+                     icon={<DollarSign className="h-6 w-6" />}
                      average={salesGoal * 0.8}
                      backgroundClass="bg-white"
                      borderClass="border border-gray-200"
                      valueTextClass="text-4xl font-black text-gray-800"
                      className="md:col-span-3 lg:col-span-2"
-                     extraLines={["🎯 MÉTRICA PRINCIPAL", "↗️ +12.5% vs mes anterior | 82% del objetivo"]}
+                     extraLines={["MÉTRICA PRINCIPAL", "+12.5% vs mes anterior | 82% del objetivo"]}
                    />
                    
                    {/* 2. MARGEN BRUTO - Segunda estrella */}
@@ -449,14 +462,14 @@ export const VentasPage: React.FC = () => {
                      value={analisisData?.kpis?.margenBruto || 0}
                      type="margen"
                      format="currency"
-                     icon="📊"
+                     icon={<BarChart3 className="h-6 w-6" />}
                      backgroundClass="bg-green-50"
                      borderClass="border border-green-200"
                      valueTextClass="text-4xl font-bold text-gray-800 tabular-nums"
                      secondaryValue={analisisData?.kpis?.margenBrutoPct || 0}
                      secondaryFormat="percentage"
                      className="md:col-span-2 lg:col-span-2"
-                     extraLines={["💰 RENTABILIDAD CLAVE"]}
+                     extraLines={["RENTABILIDAD CLAVE"]}
                    />
                    
                    {/* 3. FORECAST - Tercera prioridad */}
@@ -465,12 +478,12 @@ export const VentasPage: React.FC = () => {
                      value={diasTranscurridos > 0 ? (analisisData?.kpis?.ventasTotales || 0) / diasTranscurridos * diasDelMes : 0}
                      type="ventas"
                      format="currency"
-                     icon="📈"
+                     icon={<TrendingUp className="h-6 w-6" />}
                      backgroundClass="bg-blue-50"
                      borderClass="border border-blue-200"
                      valueTextClass="text-2xl font-bold text-gray-800"
                      className="md:col-span-1"
-                     extraLines={["📈 PROYECCIÓN ESTRATÉGICA", "98.4% probabilidad de cumplir objetivo"]}
+                     extraLines={["PROYECCIÓN ESTRATÉGICA", "98.4% probabilidad de cumplir objetivo"]}
                    />
                    
                    {/* 4. CARTERA VENCIDA - Alerta compacta */}
@@ -479,7 +492,7 @@ export const VentasPage: React.FC = () => {
                      value={analisisData?.kpis?.carteraVencida || 0}
                      type="cartera"
                      format="currency"
-                     icon="⚠️"
+                     icon={<AlertTriangle className="h-6 w-6" />}
                      backgroundClass="bg-white"
                      borderClass="border border-gray-200"
                      className="border-l-4 border-red-500"
@@ -493,7 +506,7 @@ export const VentasPage: React.FC = () => {
                      value={analisisData?.kpis?.ticketPromedio?.mostradorSantaAnita || 0}
                      type="ventas"
                      format="currency"
-                     icon="🧾"
+                     icon={<Receipt className="h-6 w-6" />}
                      backgroundClass="bg-white"
                      borderClass="border border-gray-200"
                      valueTextClass="text-gray-700"
@@ -504,7 +517,7 @@ export const VentasPage: React.FC = () => {
                      value={analisisData?.kpis?.ticketPromedio?.domicilio || 0}
                      type="ventas"
                      format="currency"
-                     icon="🏠"
+                     icon={<Home className="h-6 w-6" />}
                      backgroundClass="bg-white"
                      borderClass="border border-gray-200"
                      valueTextClass="text-gray-700"
@@ -515,7 +528,7 @@ export const VentasPage: React.FC = () => {
                      value={analisisData?.kpis?.ticketPromedio?.campo || 0}
                      type="ventas"
                      format="currency"
-                     icon="🧳"
+                     icon={<BriefcaseIcon className="h-6 w-6" />}
                      backgroundClass="bg-white"
                      borderClass="border border-gray-200"
                      valueTextClass="text-gray-700"
@@ -526,7 +539,7 @@ export const VentasPage: React.FC = () => {
                      value={analisisData?.kpis?.ticketPromedio?.caminoReal || 0}
                      type="ventas"
                      format="currency"
-                     icon="🏢"
+                     icon={<Building2 className="h-6 w-6" />}
                      backgroundClass="bg-white"
                      borderClass="border border-gray-200"
                      valueTextClass="text-gray-700"
@@ -541,12 +554,15 @@ export const VentasPage: React.FC = () => {
 
                 {/* --- INICIO: SECCIÓN DE RANKINGS ESTRATÉGICOS MEJORADOS --- */}
                 <div className="mt-8">
-                  <h2 className="text-xl font-bold tracking-tight mb-4">🏆 Rankings Clave con Gamificación</h2>
+                  <h2 className="text-xl font-bold tracking-tight mb-4 flex items-center gap-2">
+                    <Trophy className="h-6 w-6 text-yellow-500" />
+                    Rankings Clave con Gamificación
+                  </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-in">
                     
                     {/* Fila 1 - Rankings Mejorados */}
                     <EnhancedTopList
-                      title="💰 Productos más Vendidos"
+                      title="Productos más Vendidos"
                       data={analisisData?.catalogoProductos?.map((product: any) => ({
                         producto: product.descripcion,
                         ventas: product.importe || 0,
@@ -558,7 +574,7 @@ export const VentasPage: React.FC = () => {
                     />
 
                     <EnhancedTopList
-                      title="📦 Productos más vendidos por Unidades"
+                      title="Productos más vendidos por Unidades"
                       data={analisisData?.catalogoProductos?.map((product: any) => ({
                         producto: product.descripcion,
                         ventas: product.cantidad || 0,
@@ -570,7 +586,7 @@ export const VentasPage: React.FC = () => {
                     />
                     
                     <EnhancedTopList
-                      title="🔥 Productos más Rentables"
+                      title="Productos más Rentables"
                       data={analisisData?.catalogoProductos?.slice().sort((a: any, b: any) => (b.utilidad || 0) - (a.utilidad || 0)).map((product: any) => ({
                         producto: product.descripcion,
                         ventas: product.utilidad || 0,
@@ -583,7 +599,7 @@ export const VentasPage: React.FC = () => {
 
                     {/* Fila 2 - Sucursales y Mostrador */}
                     <EnhancedTopList
-                      title="🏢 Ventas por Sucursal"
+                      title="Ventas por Sucursal"
                       data={analisisData?.ventasPorSucursal?.map((sucursal: any) => ({
                         agente: sucursal.sucursal,
                         ventas: sucursal.ventas
@@ -594,7 +610,7 @@ export const VentasPage: React.FC = () => {
                     />
                     
                     <EnhancedTopList
-                      title="💼 Top Agentes de Mostrador"
+                      title="Top Agentes de Mostrador"
                       data={analisisData?.agentesMostrador?.map((agente: any) => ({
                         agente: agente.agente,
                         ventas: agente.ventas
@@ -605,7 +621,7 @@ export const VentasPage: React.FC = () => {
                     />
 
                     <EnhancedTopList
-                      title="🏪 Top Clientes de Mostrador"
+                      title="Top Clientes de Mostrador"
                       data={analisisData?.clientesMostradorTop?.map((cliente: any) => ({
                         cliente: cliente.cliente,
                         ventas: cliente.ventas
@@ -616,7 +632,7 @@ export const VentasPage: React.FC = () => {
                     />
 
                     <EnhancedTopList
-                      title="🧾 Clientes de Mostrador con más pedidos"
+                      title="Clientes de Mostrador con más pedidos"
                       data={analisisData?.clientesMostradorFrecuenciaTop?.map((cliente: any) => ({
                         cliente: cliente.cliente,
                         ventas: cliente.pedidos
@@ -628,7 +644,7 @@ export const VentasPage: React.FC = () => {
 
                     {/* Fila 3 - Campo */}
                     <EnhancedTopList
-                      title="👥 Top Agentes de Campo"
+                      title="Top Agentes de Campo"
                       data={analisisData?.rendimientoAgentes?.map((agente: any) => ({
                         agente: agente.agente,
                         ventas: agente.ventas,
@@ -641,7 +657,7 @@ export const VentasPage: React.FC = () => {
                     />
 
                     <EnhancedTopList
-                      title="👑 Top Clientes de Campo"
+                      title="Top Clientes de Campo"
                       data={analisisData?.clientesCampoTop?.map((cliente: any) => ({
                         cliente: cliente.cliente,
                         ventas: cliente.ventas

@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { CustomSelect } from '../ui/CustomSelect';
 
 type Tipo = 'Ingreso' | 'Egreso' | 'Transferencia';
 type FormaPago = 'Efectivo' | 'Transferencia' | 'Cheque' | 'Tarjeta';
 type Frecuencia = 'Único' | 'Semanal' | 'Quincenal' | 'Mensual' | 'Anual';
 
-interface Option { id: string; nombre: string; categoria_id?: string }
+interface Option { id: string; nombre: string; categoria_id?: string; color?: string }
 
 interface RowDraft {
   tipo: Tipo | '';
@@ -103,22 +104,35 @@ export const PaymentsSheet: React.FC<{ onSaved?: () => void }> = ({ onSaved }) =
     if (isEditing) {
       if (type === 'select') {
         return (
-          <select
-            className="w-full h-full border-0 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={editValue ?? ''}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={saveEdit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') saveEdit();
-              if (e.key === 'Escape') cancelEdit();
-            }}
-            autoFocus
-          >
-            <option value="">-</option>
-            {options.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+          <div className="w-full h-full">
+            <CustomSelect
+              value={editValue ?? ''}
+              onChange={(value) => {
+                setEditValue(value);
+                // Auto-save on selection
+                setTimeout(() => {
+                  updateRow(rowIndex, columnName, value);
+                  setEditingCell(null);
+                  setEditValue('');
+                }, 100);
+              }}
+              options={options}
+              placeholder="-"
+              className="h-full"
+              renderSelected={(selected) => {
+                if (!selected) return <span className="text-gray-500">-</span>;
+                return (
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-3 h-3 rounded-full border-2 border-gray-300" 
+                      style={{ backgroundColor: selected.color || '#6B7280' }}
+                    />
+                    <span className="text-sm">{selected.label}</span>
+                  </div>
+                );
+              }}
+            />
+          </div>
         );
       }
 
@@ -151,12 +165,31 @@ export const PaymentsSheet: React.FC<{ onSaved?: () => void }> = ({ onSaved }) =
       );
     }
 
+    const getDisplayValue = () => {
+      if (type === 'checkbox') return value ? '✓' : '';
+      if (type === 'select' && value) {
+        const selectedOption = options.find(opt => opt.value === value);
+        if (selectedOption) {
+          return (
+            <div className="flex items-center gap-2">
+              <div 
+                className="w-3 h-3 rounded-full border-2 border-gray-300" 
+                style={{ backgroundColor: selectedOption.color || '#6B7280' }}
+              />
+              <span className="text-sm">{selectedOption.label}</span>
+            </div>
+          );
+        }
+      }
+      return value || '-';
+    };
+
     return (
       <div
         className="w-full h-full px-2 py-2 cursor-pointer hover:bg-blue-50 flex items-center"
         onClick={() => startEditing(rowIndex, columnName, value)}
       >
-        {type === 'checkbox' ? (value ? '✓' : '') : (value || '-')}
+        {getDisplayValue()}
       </div>
     );
   };
@@ -165,8 +198,8 @@ export const PaymentsSheet: React.FC<{ onSaved?: () => void }> = ({ onSaved }) =
     const loadOptions = async () => {
       try {
         const [{ data: cats }, { data: subs }, { data: provs }] = await Promise.all([
-          supabase.from('categorias_financieras').select('id,nombre').order('nombre', { ascending: true }),
-          supabase.from('subcategorias_financieras').select('id,nombre,categoria_id').order('nombre', { ascending: true }),
+          supabase.from('categorias_financieras').select('id,nombre,color').order('nombre', { ascending: true }),
+          supabase.from('subcategorias_financieras').select('id,nombre,categoria_id,color').order('nombre', { ascending: true }),
           supabase.from('proveedores').select('id,nombre').order('nombre', { ascending: true })
         ]);
         setCategorias((cats || []) as any);
@@ -282,12 +315,12 @@ export const PaymentsSheet: React.FC<{ onSaved?: () => void }> = ({ onSaved }) =
               </td>
               <td className="border-r border-gray-200 h-10">
                 {renderEditableCell(index, 'categoria_id', row.categoria_id, 'select', [
-                  ...categorias.map(c => ({ value: c.id, label: c.nombre }))
+                  ...categorias.map(c => ({ value: c.id, label: c.nombre, color: c.color }))
                 ])}
               </td>
               <td className="border-r border-gray-200 h-10">
                 {renderEditableCell(index, 'subcategoria_id', row.subcategoria_id, 'select', [
-                  ...((subOptionsByCat.get(row.categoria_id) || []).map(s => ({ value: s.id, label: s.nombre })))
+                  ...((subOptionsByCat.get(row.categoria_id) || []).map(s => ({ value: s.id, label: s.nombre, color: s.color })))
                 ])}
               </td>
               <td className="border-r border-gray-200 h-10">

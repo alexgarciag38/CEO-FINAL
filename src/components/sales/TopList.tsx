@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChevronDown, ChevronUp, TrendingUp, DollarSign, Users, Package } from 'lucide-react';
+import { ChevronDown, ChevronUp, TrendingUp, DollarSign, Users, Package, Medal, Award, Star } from 'lucide-react';
 
 interface TopItem {
   id: string;
@@ -43,8 +43,10 @@ export const TopList: React.FC<TopListProps> = ({
   };
 
   const getRankIcon = (index: number) => {
-    const ranks = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
-    return ranks[index] || `${index + 1}️⃣`;
+    if (index === 0) return <Medal className="h-5 w-5 text-yellow-500" />;
+    if (index === 1) return <Award className="h-5 w-5 text-gray-400" />;
+    if (index === 2) return <Award className="h-5 w-5 text-orange-500" />;
+    return <Star className="h-5 w-5 text-blue-500" />;
   };
 
   return (
@@ -83,7 +85,7 @@ export const TopList: React.FC<TopListProps> = ({
             onMouseLeave={() => setHoveredItem(null)}
           >
             <div className="flex items-center space-x-3 flex-1">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${getIconColor(index)}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${getIconColor(index)}`}>
                 {getRankIcon(index)}
               </div>
               <div className="flex-1 min-w-0">

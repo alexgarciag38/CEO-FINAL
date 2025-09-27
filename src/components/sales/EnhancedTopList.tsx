@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { getPerformanceEmoji } from '@/utils/visualHelpers';
-import { Trophy } from 'lucide-react';
+import { Trophy, Medal, Award, Star, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface EnhancedTopListProps {
   title: string;
@@ -55,10 +55,10 @@ export const EnhancedTopList: React.FC<EnhancedTopListProps> = ({
 
   const getItemIcon = (position: number, item: any) => {
     const performanceEmoji = getPerformanceEmoji(item.ventas, averageVentas);
-    if (position === 1) return '🥇';
-    if (position === 2) return '🥈';
-    if (position === 3) return '🥉';
-    return performanceEmoji;
+    if (position === 1) return <Medal className="h-5 w-5 text-yellow-500" />;
+    if (position === 2) return <Award className="h-5 w-5 text-gray-400" />;
+    if (position === 3) return <Award className="h-5 w-5 text-orange-500" />;
+    return <Star className="h-5 w-5 text-blue-500" />;
   };
 
   const getItemColor = (position: number, item: any) => {
@@ -112,7 +112,7 @@ export const EnhancedTopList: React.FC<EnhancedTopListProps> = ({
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">{getItemIcon(position, item)}</span>
+                  {getItemIcon(position, item)}
                   <span className="font-medium text-gray-900">{getItemName(item)}</span>
                   {position <= 3 && (
                     <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">#{position}</span>

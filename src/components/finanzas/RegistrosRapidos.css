@@ -1,0 +1,287 @@
+/* CSS específico para la tabla de Registros Rápidos - ELIMINACIÓN TOTAL DEL SCROLL HORIZONTAL */
+
+.registro-rapido-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;
+  /* Asegurar que no haya padding excesivo en los contenedores */
+}
+
+/* Anchos específicos para cada columna - 12 COLUMNAS COMPLETAS - CRÍTICO PARA ELIMINAR SCROLL */
+.registro-rapido-table th:nth-child(1), 
+.registro-rapido-table td:nth-child(1) { /* MODO */
+  width: 60px; /* Icono toggle */
+  min-width: 60px;
+  max-width: 60px;
+}
+
+.registro-rapido-table th:nth-child(2), 
+.registro-rapido-table td:nth-child(2) { /* TIPO */
+  width: 60px; /* Icono toggle I/E */
+  min-width: 60px;
+  max-width: 60px;
+}
+
+.registro-rapido-table th:nth-child(3), 
+.registro-rapido-table td:nth-child(3) { /* CATEGORÍA */
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+}
+
+.registro-rapido-table th:nth-child(4), 
+.registro-rapido-table td:nth-child(4) { /* SUBCATEGORÍA */
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+}
+
+.registro-rapido-table th:nth-child(5), 
+.registro-rapido-table td:nth-child(5) { /* PROVEEDOR */
+  width: 120px; /* Con truncado */
+  min-width: 120px;
+  max-width: 120px;
+}
+
+.registro-rapido-table th:nth-child(6), 
+.registro-rapido-table td:nth-child(6) { /* DESCRIPCIÓN */
+  width: 140px; /* Con truncado */
+  min-width: 140px;
+  max-width: 140px;
+}
+
+.registro-rapido-table th:nth-child(7), 
+.registro-rapido-table td:nth-child(7) { /* MONTO */
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+}
+
+.registro-rapido-table th:nth-child(8), 
+.registro-rapido-table td:nth-child(8) { /* FECHA VENC. */
+  width: 110px;
+  min-width: 110px;
+  max-width: 110px;
+}
+
+.registro-rapido-table th:nth-child(9), 
+.registro-rapido-table td:nth-child(9) { /* DETALLES RECURRENCIA */
+  width: 130px; /* Espacio para resumen */
+  min-width: 130px;
+  max-width: 130px;
+}
+
+.registro-rapido-table th:nth-child(10), 
+.registro-rapido-table td:nth-child(10) { /* ESTADO / FECHA EFECTIVA */
+  width: 120px; /* Espacio para dropdown + datepicker */
+  min-width: 120px;
+  max-width: 120px;
+}
+
+.registro-rapido-table th:nth-child(11), 
+.registro-rapido-table td:nth-child(11) { /* FISCAL */
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+}
+
+.registro-rapido-table th:nth-child(12), 
+.registro-rapido-table td:nth-child(12) { /* ACCIONES */
+  width: 70px; /* Iconos de editar/eliminar */
+  min-width: 70px;
+  max-width: 70px;
+}
+
+/* Asegurar que los inputs y selects dentro de los td tengan width: 100% y padding reducido */
+.registro-rapido-table td input, 
+.registro-rapido-table td select {
+  width: 100%;
+  padding: 0.125rem 0.25rem; /* Padding ultra-compacto */
+  box-sizing: border-box; /* Crucial para que el padding no añada ancho */
+  font-size: 0.75rem; /* text-xs */
+  border: 1px solid #d1d5db; /* border-gray-300 */
+  border-radius: 0.25rem; /* rounded-sm */
+  margin: 0;
+}
+
+.registro-rapido-table td input:focus, 
+.registro-rapido-table td select:focus {
+  outline: none;
+  ring: 1px;
+  ring-color: #3b82f6; /* ring-blue-500 */
+  border-color: transparent;
+}
+
+/* Padding ultra-compacto para las celdas */
+.registro-rapido-table td {
+  padding: 0.25rem 0.125rem !important; /* px-1 py-2 */
+}
+
+.registro-rapido-table th {
+  padding: 0.5rem 0.125rem !important; /* px-1 py-2 */
+}
+
+/* Text overflow para campos de texto largos */
+.registro-rapido-table td input[type="text"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Estilos específicos para TableCustomSelect */
+.registro-rapido-table .table-custom-select {
+  width: 100%;
+  min-height: 24px;
+}
+
+.registro-rapido-table .table-custom-select button {
+  min-height: 24px;
+  padding: 0.125rem 0.25rem;
+  font-size: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  background: white;
+}
+
+.registro-rapido-table .table-custom-select button:hover {
+  border-color: #9ca3af;
+}
+
+.registro-rapido-table .table-custom-select button:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+/* Dropdown menu con Portal - Máxima visibilidad */
+.registro-rapido-table .table-custom-select [role="listbox"] {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.25rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  z-index: 10000 !important; /* Z-index muy alto para estar por encima de todo */
+  max-height: 200px !important; /* Altura máxima para forzar scroll */
+  overflow-y: auto !important; /* Scroll vertical */
+  overflow-x: hidden !important; /* Sin scroll horizontal */
+}
+
+/* Scrollbar personalizado para el dropdown */
+.registro-rapido-table .table-custom-select [role="listbox"]::-webkit-scrollbar {
+  width: 6px;
+}
+
+.registro-rapido-table .table-custom-select [role="listbox"]::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.registro-rapido-table .table-custom-select [role="listbox"]::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.registro-rapido-table .table-custom-select [role="listbox"]::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Portal container para dropdowns */
+#dropdown-portal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 9999 !important;
+  pointer-events: none !important;
+}
+
+#dropdown-portal > div {
+  pointer-events: auto !important;
+}
+
+.registro-rapido-table .table-custom-select [role="option"] {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  min-height: 24px;
+}
+
+.registro-rapido-table .table-custom-select [role="option"]:hover {
+  background-color: #eff6ff;
+}
+
+.registro-rapido-table .table-custom-select [role="option"][aria-selected="true"] {
+  background-color: #dbeafe;
+}
+
+/* Asegurar que los botones de icono no excedan el ancho de su celda */
+.registro-rapido-table td button {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Contenedor de la tabla - SIN overflow que recorte dropdowns */
+.registro-rapido-container {
+  width: 100%;
+  overflow-x: hidden; /* CRÍTICO: No permitir scroll horizontal */
+  overflow-y: auto; /* Permitir scroll vertical si es necesario */
+  position: relative; /* Para que los dropdowns se posicionen correctamente */
+}
+
+/* Asegurar que ningún contenedor recorte los dropdowns */
+.registro-rapido-container * {
+  overflow: visible !important; /* Permitir que los dropdowns sean visibles */
+}
+
+/* Excepción para la tabla misma */
+.registro-rapido-container .registro-rapido-table {
+  overflow: visible !important;
+}
+
+.registro-rapido-container .registro-rapido-table tbody {
+  overflow: visible !important;
+}
+
+.registro-rapido-container .registro-rapido-table tr {
+  overflow: visible !important;
+}
+
+.registro-rapido-container .registro-rapido-table td {
+  overflow: visible !important;
+}
+
+/* Estilos específicos para UltraSimpleSelect */
+.registro-rapido-container .relative {
+  overflow: visible !important;
+}
+
+.registro-rapido-container .relative > div {
+  overflow: visible !important;
+}
+
+/* Asegurar que el dropdown se sobreponga */
+.registro-rapido-container .relative [role="listbox"] {
+  z-index: 9999 !important;
+  position: absolute !important;
+}
+
+/* Responsive: En pantallas muy pequeñas, ajustar anchos */
+@media (max-width: 768px) {
+  .registro-rapido-table th:nth-child(5), 
+  .registro-rapido-table td:nth-child(5) { /* PROVEEDOR */
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+  }
+  
+  .registro-rapido-table th:nth-child(6), 
+  .registro-rapido-table td:nth-child(6) { /* DESCRIPCIÓN */
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
+  }
+  
+  .registro-rapido-table th:nth-child(9), 
+  .registro-rapido-table td:nth-child(9) { /* DETALLES RECURRENCIA */
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+  }
+}

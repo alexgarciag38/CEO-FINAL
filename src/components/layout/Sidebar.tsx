@@ -17,7 +17,8 @@ import {
   Folder,
   ClipboardList,
   Wrench,
-  Building
+  Building,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -78,6 +79,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: 'Wrench'
     },
     {
+      id: 'finanzas',
+      title: 'Finanzas',
+      path: '/finanzas',
+      icon: 'DollarSign'
+    },
+    {
       id: 'financiero',
       title: 'Financiero',
       path: '/financiero',
@@ -122,7 +129,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     Settings,
     Folder,
     ClipboardList,
-    Wrench
+    Wrench,
+    FileText
   } as const;
 
   const handleSignOut = async () => {
