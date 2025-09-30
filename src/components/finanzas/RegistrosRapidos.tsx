@@ -19,6 +19,8 @@ interface MovimientoRapido {
   tipo: 'Ingreso' | 'Egreso';
   categoriaId: string;
   subcategoriaId: string;
+  metodoCategoriaId: string;
+  metodoSubcategoriaId: string;
   proveedor_cliente: string;
   descripcion: string;
   monto: number;
@@ -51,6 +53,22 @@ interface Subcategoria {
   categoria_id: string;
 }
 
+interface MetodoCat {
+  id: string;
+  nombre: string;
+  color: string | null;
+  tipo: 'Ingreso' | 'Egreso';
+}
+
+interface MetodoSub {
+  id: string;
+  nombre: string;
+  categoria_id: string;
+  activa: boolean;
+}
+
+interface PCItem { id: string; nombre: string; }
+
 interface RegistrosRapidosProps {
   autoAddRow?: boolean;
 }
@@ -63,6 +81,10 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
   const [movimientos, setMovimientos] = useState<MovimientoRapido[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([]);
+  const [metCats, setMetCats] = useState<MetodoCat[]>([]);
+  const [metSubs, setMetSubs] = useState<MetodoSub[]>([]);
+  const [proveedores, setProveedores] = useState<PCItem[]>([]);
+  const [clientes, setClientes] = useState<PCItem[]>([]);
   // const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +138,58 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     }
   };
 
+  const loadMetodoCategorias = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('metodos_pago_categorias')
+        .select('id,nombre,color,tipo,activa')
+        .order('nombre');
+      if (error) throw error;
+      setMetCats((data || []).map((c: any) => ({ id: c.id, nombre: c.nombre, color: c.color, tipo: c.tipo })));
+    } catch (error) {
+      console.error('Error cargando métodos (categorías):', error);
+    }
+  };
+
+  const loadMetodoSubcategorias = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('metodos_pago_subcategorias')
+        .select('id,nombre,categoria_id,activa')
+        .order('nombre');
+      if (error) throw error;
+      setMetSubs((data || []).map((s: any) => ({ id: s.id, nombre: s.nombre, categoria_id: s.categoria_id, activa: !!s.activa })));
+    } catch (error) {
+      console.error('Error cargando métodos (subcategorías):', error);
+    }
+  };
+
+  const loadProveedores = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('proveedores')
+        .select('id,nombre')
+        .order('nombre');
+      if (error) throw error;
+      setProveedores((data || []) as any);
+    } catch (error) {
+      console.error('Error cargando proveedores:', error);
+    }
+  };
+
+  const loadClientes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('id,nombre')
+        .order('nombre');
+      if (error) throw error;
+      setClientes((data || []) as any);
+    } catch (error) {
+      console.error('Error cargando clientes:', error);
+    }
+  };
+
   // ===== FUNCIONES DE MOVIMIENTOS =====
 
   const generarId = () => `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -127,6 +201,8 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
       tipo: 'Egreso',
       categoriaId: '',
       subcategoriaId: '',
+      metodoCategoriaId: '',
+      metodoSubcategoriaId: '',
       proveedor_cliente: '',
       descripcion: '',
       monto: 0,
@@ -176,11 +252,17 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         if (field === 'tipo') {
           updated.categoriaId = '';
           updated.subcategoriaId = '';
+          updated.metodoCategoriaId = '';
+          updated.metodoSubcategoriaId = '';
         }
 
         // Lógica especial para cambio de categoría
         if (field === 'categoriaId') {
           updated.subcategoriaId = '';
+        }
+
+        if (field === 'metodoCategoriaId') {
+          updated.metodoSubcategoriaId = '';
         }
 
         return updated;
@@ -216,12 +298,12 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     // Helpers locales
     const isTextInputFocused = () => {
       if (!focusedCell) return false;
-      const textInputCols = [4, 5, 6];
+      const textInputCols = [5, 6];
       return textInputCols.includes(focusedCell.col);
     };
     const isDateInputFocused = () => {
       if (!focusedCell) return false;
-      return focusedCell.col === 7;
+      return focusedCell.col === 8;
     };
 
     // --- PRIORIDAD 0: Modal de confirmación de borrado activo ---
@@ -239,7 +321,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     }
 
     // --- PRIORIDAD 1: Dropdown activo (solo si la celda enfocada coincide) ---
-    const dropdownIsForFocusedCell = !!activeDropdown && !!focusedCell && activeDropdown.row === focusedCell.row && activeDropdown.col === focusedCell.col;
+    const dropdownIsForFocusedCell = !!activeDropdown && !!focusedCell && activeDropdown.row === focusedCell.row && (activeDropdown.col === focusedCell.col || (activeDropdown.col as any) === 70 && focusedCell.col === 7);
     if (activeDropdown && dropdownIsForFocusedCell) {
       // Manejar teclas globalmente para evitar que la página haga scroll
       const optionsCount = 9999; // real se gestiona en reducer por límites
@@ -247,12 +329,20 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         event.preventDefault();
         event.stopPropagation();
         dispatch({ type: 'HIGHLIGHT_DROPDOWN_OPTION', payload: { direction: key === 'ArrowUp' ? 'up' : 'down', optionsCount } });
+      } else if (key === 'ArrowLeft' || key === 'ArrowRight') {
+        // Cerrar dropdown y navegar lateralmente (evitar scroll de página)
+        event.preventDefault();
+        event.stopPropagation();
+        const direction = key === 'ArrowLeft' ? 'left' : 'right';
+        dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
+        dispatch({ type: 'MOVE_FOCUS', payload: { direction, maxRows: movimientos.length, maxCols: 13 } });
       } else if (key === 'Enter') {
         event.preventDefault();
         event.stopPropagation();
         // Intentar seleccionar vía ref del WorkingSelect en la celda activa
         const { row, col } = activeDropdown;
-        const cellEl = cellRefs.current.get(getCellKey(row, col));
+        const lookupCol = (col as any) === 70 ? 7 : col;
+        const cellEl = cellRefs.current.get(getCellKey(row, lookupCol));
         const api = cellEl ? (cellEl as any).workingSelect : null;
         if (api && api.selectHighlighted) {
           api.selectHighlighted();
@@ -267,25 +357,31 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
       }
       return;
     } else if (activeDropdown && !dropdownIsForFocusedCell) {
-      // Si hay un dropdown abierto de otra celda, ciérralo en cuanto se presione una tecla de navegación/acción
+      // Si hay un dropdown abierto de otra celda, ciérralo y, si fue una flecha, navega también
       if (key === 'Enter' || key.startsWith('Arrow') || key === 'Escape' || key === 'Tab') {
+        event.preventDefault();
+        event.stopPropagation();
         dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
+        if (key.startsWith('Arrow') && state.focusedCell) {
+          const direction = key.replace('Arrow', '').toLowerCase() as any;
+          dispatch({ type: 'MOVE_FOCUS', payload: { direction, maxRows: movimientos.length, maxCols: 13 } });
+        }
       }
     }
 
     // --- PRIORIDAD 2: Una celda de texto está en modo edición ---
     if (isEditing && isTextInputFocused()) {
       if (key === 'Escape') {
-        event.preventDefault();
+      event.preventDefault();
         dispatch({ type: 'STOP_EDITING' }); // Cancelar cambios se maneja en el reducer/componente
         return;
       } else if (key === 'Enter' || key === 'Tab') {
         event.preventDefault();
         dispatch({ type: 'STOP_EDITING' });
         if (key === 'Enter' || (key === 'Tab' && !shiftKey)) {
-          dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: movimientos.length, maxCols: 12 } });
+          dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: movimientos.length, maxCols: 13 } });
         } else if (key === 'Tab' && shiftKey) {
-          dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'left', maxRows: movimientos.length, maxCols: 12 } });
+          dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'left', maxRows: movimientos.length, maxCols: 13 } });
         }
         return;
       } else if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
@@ -293,7 +389,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         event.preventDefault();
         const direction = key.replace('Arrow', '').toLowerCase() as 'up' | 'down' | 'left' | 'right';
         dispatch({ type: 'STOP_EDITING' });
-        dispatch({ type: 'MOVE_FOCUS', payload: { direction, maxRows: movimientos.length, maxCols: 12 } });
+        dispatch({ type: 'MOVE_FOCUS', payload: { direction, maxRows: movimientos.length, maxCols: 13 } });
         return;
       }
       // Dejar que el input maneje otras teclas
@@ -313,19 +409,25 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
             event.preventDefault();
             // Guardado implícito: ya se sincroniza onChange del input controlado
             dispatch({ type: 'STOP_EDITING' });
-            dispatch({ type: 'MOVE_FOCUS', payload: { direction, maxRows: movimientos.length, maxCols: 12 } });
+            dispatch({ type: 'MOVE_FOCUS', payload: { direction, maxRows: movimientos.length, maxCols: 13 } });
           return;
         }
           // Si no estamos editando, navegar normalmente
           console.log('RegistrosRapidos - Navegando entre celdas');
           event.preventDefault();
-          dispatch({ type: 'MOVE_FOCUS', payload: { direction, maxRows: movimientos.length, maxCols: 12 } });
+          // Corrección: maxCols=13 tras añadir columna Método
+          // Caso especial: desde Fiscal (11) con ArrowRight forzar Acciones (12)
+          if (key === 'ArrowRight' && focusedCell.col === 11) {
+            dispatch({ type: 'SET_FOCUS', payload: { row: focusedCell.row, col: 12 } });
+          } else {
+            dispatch({ type: 'MOVE_FOCUS', payload: { direction, maxRows: movimientos.length, maxCols: 13 } });
+          }
       } else if (key === 'Enter') {
         console.log('RegistrosRapidos - Enter presionado:', { col: focusedCell.col, isEditing });
         // Lógica para decidir si editar o abrir dropdown
         const { col } = focusedCell;
-        const dropdownCols = [2, 3, 8, 9]; // Categoría, Subcat, Detalles Rec., Estado
-        const textInputCols = [4, 5, 6]; // Proveedor, Descripción, Monto
+        const dropdownCols = [2, 3, 4, 7, 70 as any, 9, 10]; // Categoría, Subcat, Prov/Cliente, Método, Submétodo, Detalles Rec., Estado
+        const textInputCols = [5, 6]; // Descripción, Monto
         
         if (textInputCols.includes(col)) {
           // Para inputs de texto
@@ -336,15 +438,15 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
             event.preventDefault();
             event.stopPropagation();
             dispatch({ type: 'STOP_EDITING' });
-            dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: movimientos.length, maxCols: 12 } });
+            dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: movimientos.length, maxCols: 13 } });
           }
         } else if (col === 0 || col === 1) {
           // Enter en MODO/TIPO: alternar y cerrar cualquier dropdown abierto de otra celda
           event.preventDefault();
           event.stopPropagation();
           if (state.activeDropdown) {
-            dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
-          }
+        dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
+      }
           const mov = movimientos[focusedCell.row];
           if (mov) {
             if (col === 0) {
@@ -355,12 +457,12 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
               actualizarMovimiento(mov.id, 'tipo', nuevo);
             }
           }
-        } else if (col === 7) {
+        } else if (col === 8) {
           // Para fecha, simplemente enfocamos el componente. Él manejará su estado de edición.
           console.log('RegistrosRapidos - Enter en fecha, iniciando edición');
           event.preventDefault();
           event.stopPropagation();
-          const cellElement = cellRefs.current.get(getCellKey(focusedCell.row, 7));
+          const cellElement = cellRefs.current.get(getCellKey(focusedCell.row, 8));
           if (cellElement && (cellElement as any).smartDateInput) {
             (cellElement as any).smartDateInput.focus();
           }
@@ -368,8 +470,13 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
           console.log('RegistrosRapidos - Enter en dropdown, abriendo');
           event.preventDefault();
           event.stopPropagation();
-          // Abrir exactamente el dropdown de la celda enfocada
-          dispatch({ type: 'TOGGLE_DROPDOWN', payload: { row: focusedCell.row, col } });
+          // Cerrar cualquier dropdown abierto y abrir exactamente el de la celda enfocada
+          if (state.activeDropdown) {
+            dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
+          }
+          setTimeout(() => {
+            dispatch({ type: 'TOGGLE_DROPDOWN', payload: { row: focusedCell.row, col } });
+          }, 0);
           // Caso especial: col 8 (Detalles Rec.) usa popover propio
           if (col === 8) {
             setTimeout(() => {
@@ -379,16 +486,16 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
               if (pop && pop.open) pop.open();
             }, 0);
           }
-        } else if (col === 10) {
-          // Enter en FISCAL: alternar checkbox
+        } else if (col === 11) {
+          // Enter en FISCAL: alternar checkbox (col 11 tras nueva columna Método)
           event.preventDefault();
           event.stopPropagation();
           const mov = movimientos[focusedCell.row];
           if (mov) {
             actualizarMovimiento(mov.id, 'es_fiscal', !mov.es_fiscal);
           }
-        } else if (col === 11) {
-          // Enter en ACCIONES: solicitar confirmación
+        } else if (col === 12) {
+          // Enter en ACCIONES: solicitar confirmación (col 12 tras nueva columna Método)
           event.preventDefault();
           event.stopPropagation();
           const mov = movimientos[focusedCell.row];
@@ -446,19 +553,19 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
             }
           }
           // Manejar fecha (columna 7)
-          else if (focusedCell.col === 7 && /^[0-9]$/.test(key)) {
+          else if (focusedCell.col === 8 && /^[0-9]$/.test(key)) {
             console.log('RegistrosRapidos - Type-to-edit en fecha:', { key, row: focusedCell.row });
 
             event.preventDefault();
             event.stopPropagation();
 
             // Asegurar estado de edición activo para la celda (persistir entre dígitos)
-            if (!state.isEditing) {
+    if (!state.isEditing) {
               dispatch({ type: 'START_OVERWRITE_EDITING' });
             }
 
             // Delegar directamente el dígito al componente hijo
-            const cellElement = cellRefs.current.get(getCellKey(focusedCell.row, 7));
+            const cellElement = cellRefs.current.get(getCellKey(focusedCell.row, 8));
             if (cellElement && (cellElement as any).smartDateInput) {
               const smartDateInput = (cellElement as any).smartDateInput;
               smartDateInput.processDigit(key);
@@ -506,6 +613,10 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
   useEffect(() => {
     loadCategorias();
     loadSubcategorias();
+    loadMetodoCategorias();
+    loadMetodoSubcategorias();
+    loadProveedores();
+    loadClientes();
   }, []);
 
   // Auto-agregar fila si se especifica
@@ -707,7 +818,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
               className="registro-rapido-table"
               style={{
                 tableLayout: 'fixed',
-                width: '800px',
+                width: '1020px',
                 borderCollapse: 'collapse'
               }}
             >
@@ -716,13 +827,13 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
                 <col style={{ width: '50px' }} />
                 <col style={{ width: '100px' }} />
                 <col style={{ width: '100px' }} />
-                <col style={{ width: '80px' }} />
-                <col style={{ width: '60px' }} />
-                <col style={{ width: '60px' }} />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '100px' }} />
+                <col style={{ width: '90px' }} />
                 <col style={{ width: '70px' }} />
-                <col style={{ width: '60px' }} />
+                <col style={{ width: '70px' }} />
+                <col style={{ width: '180px' }} />
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '90px' }} />
+                <col style={{ width: '70px' }} />
                 <col style={{ width: '80px' }} />
               </colgroup>
               <thead>
@@ -740,13 +851,16 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
                     SUBCAT.
                   </th>
                   <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    PROVEEDOR
+                    PROV/CLIENTE
                   </th>
                   <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     NOTA
                   </th>
                   <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     MONTO
+                  </th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    MÉTODO
                   </th>
                   <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     FECHA VENC.
@@ -772,6 +886,10 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
                     movimiento={movimiento}
                     categorias={categorias}
                     subcategorias={subcategorias}
+                    metCats={metCats}
+                    metSubs={metSubs}
+                    proveedores={proveedores}
+                    clientes={clientes}
                     onUpdate={actualizarMovimiento}
                     onDelete={eliminarFila}
                     onEdit={editarFila}

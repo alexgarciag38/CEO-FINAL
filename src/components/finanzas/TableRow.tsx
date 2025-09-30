@@ -3,7 +3,7 @@ import IconToggle from '@/components/ui/IconToggle';
 import WorkingSelect, { WorkingSelectRef } from '@/components/ui/WorkingSelect';
 import SmartDateInput, { SmartDateInputRef } from '@/components/ui/SmartDateInput';
 import RecurrencePickerPopover, { RecurrencePickerPopoverRef } from './RecurrencePickerPopover';
-import { LightningIcon, RefreshIcon, LetterIIcon, LetterEIcon, PencilIcon, TrashIcon } from '@/components/ui/ProfessionalIcons';
+import { LightningIcon, RefreshIcon, LetterIIcon, LetterEIcon, TrashIcon } from '@/components/ui/ProfessionalIcons';
 import { useTableContext } from './TableContext';
 
 interface MovimientoRapido {
@@ -12,6 +12,8 @@ interface MovimientoRapido {
   tipo: 'Ingreso' | 'Egreso';
   categoriaId: string;
   subcategoriaId: string;
+  metodoCategoriaId: string;
+  metodoSubcategoriaId: string;
   proveedor_cliente: string;
   descripcion: string;
   monto: number;
@@ -34,6 +36,10 @@ interface TableRowProps {
   movimiento: MovimientoRapido;
   categorias: Array<{ id: string; nombre: string; color: string }>;
   subcategorias: Array<{ id: string; nombre: string; color: string; categoria_id: string }>;
+  metCats?: Array<{ id: string; nombre: string; color: string | null; tipo: 'Ingreso' | 'Egreso' }>;
+  metSubs?: Array<{ id: string; nombre: string; categoria_id: string; activa: boolean }>;
+  proveedores?: Array<{ id: string; nombre: string }>;
+  clientes?: Array<{ id: string; nombre: string }>;
   onUpdate: (id: string, field: string, value: any) => void;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
@@ -45,9 +51,12 @@ const TableRow: React.FC<TableRowProps> = ({
   movimiento,
   categorias,
   subcategorias,
+  metCats = [],
+  metSubs = [],
+  proveedores = [],
+  clientes = [],
   onUpdate,
   onDelete,
-  onEdit,
   rowIndex,
   registerCellRef,
 }) => {
@@ -60,6 +69,10 @@ const TableRow: React.FC<TableRowProps> = ({
   const fechaInputRef = useRef<SmartDateInputRef>(null);
   const categoriaSelectRef = useRef<WorkingSelectRef>(null);
   const subcategoriaSelectRef = useRef<WorkingSelectRef>(null);
+  const pcSelectRef = useRef<WorkingSelectRef>(null);
+  const metodoCatRef = useRef<WorkingSelectRef>(null);
+  const metodoSubRef = useRef<WorkingSelectRef>(null);
+  const metodoTdRef = useRef<HTMLTableCellElement>(null);
   const recurrenceRef = useRef<RecurrencePickerPopoverRef>(null);
   const pendingToggleAfterFocusRef = useRef<{ row: number; col: number } | null>(null);
   const estadoSelectRef = useRef<WorkingSelectRef>(null);
@@ -68,7 +81,7 @@ const TableRow: React.FC<TableRowProps> = ({
   useEffect(() => {
     if (fechaInputRef.current) {
       // Registrar las funciones en el elemento de la celda para acceso externo
-      const cellElement = document.querySelector(`[data-row="${rowIndex}"][data-col="7"]`);
+      const cellElement = document.querySelector(`[data-row="${rowIndex}"][data-col="8"]`);
       if (cellElement) {
         (cellElement as any).smartDateInput = fechaInputRef.current;
       }
@@ -160,6 +173,29 @@ const TableRow: React.FC<TableRowProps> = ({
   ];
 
   const subcategoriasFiltradas = subcategorias.filter(sub => sub.categoria_id === movimiento.categoriaId);
+  const metodoCatsFiltradas = metCats.filter(mc => mc.tipo === movimiento.tipo);
+  const metodoSubsFiltradas = metSubs.filter(ms => ms.categoria_id === movimiento.metodoCategoriaId);
+  const pcOptions = (movimiento.tipo === 'Egreso' ? proveedores : clientes).map(p => ({ value: p.id, label: p.nombre }));
+
+  // Cuando la celda obtiene el foco, por defecto Enter abre Método
+  useEffect(() => {
+    const td = metodoTdRef.current as any;
+    if (!td) return;
+    if (state.focusedCell?.row === rowIndex && state.focusedCell?.col === 7) {
+      td.workingSelect = metodoCatRef.current;
+    }
+  }, [state.focusedCell?.row, state.focusedCell?.col, rowIndex]);
+
+  // Si hay un dropdown activo en esta celda, apunta el workingSelect al control que corresponde
+  useEffect(() => {
+    const td = metodoTdRef.current as any;
+    if (!td) return;
+    if (state.activeDropdown && state.activeDropdown.row === rowIndex && state.activeDropdown.col === 7) {
+      td.workingSelect = movimiento.metodoCategoriaId ? metodoSubRef.current : metodoCatRef.current;
+    }
+  }, [state.activeDropdown, movimiento.metodoCategoriaId, rowIndex]);
+
+  const isMetodoDropdownActive = !!state.activeDropdown && state.activeDropdown.row === rowIndex && state.activeDropdown.col === 7;
 
   // Forzar foco cuando se inicia la edición
   useEffect(() => {
@@ -297,25 +333,22 @@ const TableRow: React.FC<TableRowProps> = ({
       {/* COLUMNA 5: PROVEEDOR/CLIENTE */}
       <td 
         className={`px-1 py-2 cursor-pointer ${getFocusClassName(4)}`}
-              onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 4 } })}
-              onDoubleClick={() => dispatch({ type: 'START_APPEND_EDITING' })}
-        ref={(el) => registerCellRef(rowIndex, 4, el)}
+        onClick={() => handleDropdownCellClick(4)}
+        ref={(el) => {
+          registerCellRef(rowIndex, 4, el);
+          if (el) (el as any).workingSelect = pcSelectRef.current;
+        }}
       >
-        {isCellEditing(4) ? (
-        <input
-            ref={proveedorInputRef}
-          type="text"
+        <WorkingSelect
+          ref={pcSelectRef}
+          id={`pc-${movimiento.id}`}
           value={movimiento.proveedor_cliente}
-            onChange={(e) => onUpdate(movimiento.id, 'proveedor_cliente', e.target.value)}
-              className="w-full px-1 py-1 text-xs border border-blue-500 rounded ring-1 ring-blue-500"
-            autoFocus
-            onBlur={() => dispatch({ type: 'STOP_EDITING' })}
+          onChange={(value) => onUpdate(movimiento.id, 'proveedor_cliente', value)}
+          options={pcOptions}
+          placeholder="PROV/CLIENTE"
+          className="w-full"
+          cellCoordinates={{ row: rowIndex, col: 4 }}
         />
-          ) : (
-          <div className="w-full px-1 py-1 text-xs truncate" title={movimiento.proveedor_cliente}>
-            {movimiento.proveedor_cliente || <span className="text-gray-400">Proveedor/Cliente</span>}
-            </div>
-          )}
       </td>
 
       {/* COLUMNA 6: DESCRIPCIÓN */}
@@ -372,8 +405,8 @@ const TableRow: React.FC<TableRowProps> = ({
                 }
               }, 100);
             }}
-            step="0.01"
-            min="0"
+          step="0.01"
+          min="0"
         />
         ) : (
           <div className="w-full px-1 py-1 text-xs truncate text-right" title={movimiento.monto.toString()}>
@@ -382,13 +415,84 @@ const TableRow: React.FC<TableRowProps> = ({
         )}
       </td>
 
-      {/* COLUMNA 8: FECHA DE VENCIMIENTO */}
+      {/* COLUMNA 8: MÉTODO (Categoría + Subcategoría en la misma columna) */}
       <td 
         className={`px-1 py-2 cursor-pointer ${getFocusClassName(7)}`}
-        onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 7 } })}
-        ref={(el) => registerCellRef(rowIndex, 7, el)}
+        onClick={() => {
+          const td = metodoTdRef.current as any;
+          if (td) td.workingSelect = metodoCatRef.current;
+          handleDropdownCellClick(7);
+        }}
+          ref={(el) => {
+          registerCellRef(rowIndex, 7, el);
+          metodoTdRef.current = el as HTMLTableCellElement | null;
+          if (el) {
+            (el as any).workingSelectCat = metodoCatRef.current;
+            (el as any).workingSelectSub = metodoSubRef.current;
+            (el as any).workingSelect = {
+              selectHighlighted: () => {
+                // Intenta seleccionar en ambos; solo el que esté abierto actuará
+                try { metodoSubRef.current?.selectHighlighted(); } catch {}
+                try { metodoCatRef.current?.selectHighlighted(); } catch {}
+              }
+            };
+          }
+        }}
+      >
+        <div className="flex items-center gap-1 w-full">
+          <div className="flex-1">
+            <WorkingSelect
+              ref={metodoCatRef}
+              id={`metcat-${movimiento.id}`}
+              value={movimiento.metodoCategoriaId}
+              onChange={(value) => {
+                onUpdate(movimiento.id, 'metodoCategoriaId', value);
+                onUpdate(movimiento.id, 'metodoSubcategoriaId', '');
+                // Abrir el dropdown de Submétodo (col virtual 70)
+                setTimeout(() => {
+                  const td = metodoTdRef.current as any;
+                  if (td) td.workingSelect = metodoSubRef.current;
+                  dispatch({ type: 'TOGGLE_DROPDOWN', payload: { row: rowIndex, col: 70 as any } });
+                }, 0);
+              }}
+              options={metodoCatsFiltradas.map(mc => ({ value: mc.id, label: mc.nombre, color: mc.color || undefined }))}
+              placeholder="Método"
+              className="w-full"
+              cellCoordinates={{ row: rowIndex, col: 7 }}
+            />
+          </div>
+          <div className="flex-1"
+            onClick={(e) => { 
+              e.stopPropagation();
+              // Abrir explícitamente el dropdown de Submétodo (col virtual 70)
+              dispatch({ type: 'TOGGLE_DROPDOWN', payload: { row: rowIndex, col: 70 as any } });
+            }}
+            ref={(el) => {
+              // Nada: el workingSelect de la celda (td) se gestiona via metodoTdRef
+            }}
+          >
+            <WorkingSelect
+              ref={metodoSubRef}
+              id={`metsub-${movimiento.id}`}
+              value={movimiento.metodoSubcategoriaId}
+              onChange={(value) => onUpdate(movimiento.id, 'metodoSubcategoriaId', value)}
+              options={metodoSubsFiltradas.map(ms => ({ value: ms.id, label: ms.nombre }))}
+              placeholder="Submétodo"
+              className="w-full"
+              disabled={!movimiento.metodoCategoriaId}
+              cellCoordinates={{ row: rowIndex, col: 70 as any }}
+            />
+          </div>
+        </div>
+      </td>
+
+      {/* COLUMNA 9: FECHA DE VENCIMIENTO */}
+      <td 
+        className={`px-1 py-2 cursor-pointer ${getFocusClassName(8)}`}
+        onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 8 } })}
+        ref={(el) => registerCellRef(rowIndex, 8, el)}
         data-row={rowIndex}
-        data-col={7}
+        data-col={8}
       >
         {movimiento.modo === 'Unico' ? (
           <div data-component="smart-date-input">
@@ -396,16 +500,16 @@ const TableRow: React.FC<TableRowProps> = ({
               ref={fechaInputRef}
             value={movimiento.fecha_movimiento}
               onChange={(value: string) => onUpdate(movimiento.id, 'fecha_movimiento', value)}
-            isEditing={isCellEditing(7)}
+            isEditing={isCellEditing(8)}
             onStateChange={(isNowEditing) => {
-              if (!isNowEditing && isCellEditing(7)) {
+              if (!isNowEditing && isCellEditing(8)) {
                 dispatch({ type: 'STOP_EDITING' });
               }
             }}
             onComplete={() => {
               // Mover foco a la derecha cuando se completa dd/mm/aaaa
               dispatch({ type: 'STOP_EDITING' });
-              dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: (state.focusedCell ? state.focusedCell.row + 1 : 1), maxCols: 12 } });
+              dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: (state.focusedCell ? state.focusedCell.row + 1 : 1), maxCols: 13 } });
             }}
           />
           </div>
@@ -415,26 +519,26 @@ const TableRow: React.FC<TableRowProps> = ({
               ref={fechaInputRef}
             value={movimiento.fecha_inicio}
               onChange={(value: string) => onUpdate(movimiento.id, 'fecha_inicio', value)}
-            isEditing={isCellEditing(7)}
+            isEditing={isCellEditing(8)}
             onStateChange={(isNowEditing) => {
-              if (!isNowEditing && isCellEditing(7)) {
+              if (!isNowEditing && isCellEditing(8)) {
                 dispatch({ type: 'STOP_EDITING' });
               }
             }}
             onComplete={() => {
               dispatch({ type: 'STOP_EDITING' });
-              dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: (state.focusedCell ? state.focusedCell.row + 1 : 1), maxCols: 12 } });
+              dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: (state.focusedCell ? state.focusedCell.row + 1 : 1), maxCols: 13 } });
             }}
           />
           </div>
         )}
       </td>
 
-      {/* COLUMNA 9: DETALLES DE RECURRENCIA */}
+      {/* COLUMNA 10: DETALLES DE RECURRENCIA */}
       <td 
-        className={`px-1 py-2 cursor-pointer ${getFocusClassName(8)}`}
-        onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 8 } })}
-        ref={(el) => registerCellRef(rowIndex, 8, el)}
+        className={`px-1 py-2 cursor-pointer ${getFocusClassName(9)}`}
+        onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 9 } })}
+        ref={(el) => registerCellRef(rowIndex, 9, el)}
         style={{ 
           overflow: 'hidden', 
           textOverflow: 'ellipsis', 
@@ -467,12 +571,12 @@ const TableRow: React.FC<TableRowProps> = ({
         )}
       </td>
 
-      {/* COLUMNA 10: ESTADO / FECHA EFECTIVA */}
+      {/* COLUMNA 11: ESTADO / FECHA EFECTIVA */}
       <td 
-        className={`px-1 py-2 cursor-pointer ${getFocusClassName(9)}`}
-        onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 9 } })}
+        className={`px-1 py-2 cursor-pointer ${getFocusClassName(10)}`}
+        onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 10 } })}
         ref={(el) => {
-          registerCellRef(rowIndex, 9, el);
+          registerCellRef(rowIndex, 10, el);
           if (el) (el as any).workingSelect = estadoSelectRef.current;
         }}
       >
@@ -499,7 +603,7 @@ const TableRow: React.FC<TableRowProps> = ({
               ]}
               placeholder="Estado"
               className="w-full"
-              cellCoordinates={{ row: rowIndex, col: 9 }}
+              cellCoordinates={{ row: rowIndex, col: 10 }}
             />
             {movimiento.estado === 'Completado' && (
               <input
@@ -525,16 +629,16 @@ const TableRow: React.FC<TableRowProps> = ({
             ]}
             placeholder="Estado"
             className="w-full"
-            cellCoordinates={{ row: rowIndex, col: 9 }}
+            cellCoordinates={{ row: rowIndex, col: 10 }}
           />
         )}
       </td>
 
-      {/* COLUMNA 11: FISCAL */}
+      {/* COLUMNA 12: FISCAL */}
       <td 
-        className={`px-1 py-2 text-center cursor-pointer ${getFocusClassName(10)}`}
-        onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 10 } })}
-        ref={(el) => registerCellRef(rowIndex, 10, el)}
+        className={`px-1 py-2 text-center cursor-pointer ${getFocusClassName(11)}`}
+        onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 11 } })}
+        ref={(el) => registerCellRef(rowIndex, 11, el)}
       >
         <div onClick={(e) => e.stopPropagation()}>
           <input
@@ -546,11 +650,11 @@ const TableRow: React.FC<TableRowProps> = ({
         </div>
       </td>
 
-      {/* COLUMNA 12: ACCIONES */}
+      {/* COLUMNA 13: ACCIONES */}
       <td 
-        className={`px-1 py-2 text-center cursor-pointer ${getFocusClassName(11)}`}
-        onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 11 } })}
-        ref={(el) => registerCellRef(rowIndex, 11, el)}
+        className={`px-1 py-2 text-center cursor-pointer ${getFocusClassName(12)}`}
+        onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 12 } })}
+        ref={(el) => registerCellRef(rowIndex, 12, el)}
       >
         <div className="flex justify-center space-x-1" onClick={(e) => e.stopPropagation()}>
           <button

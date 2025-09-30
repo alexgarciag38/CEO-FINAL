@@ -8,7 +8,7 @@ type Subcategoria = { id: string; nombre: string; activa: boolean };
 // NUEVO: Tipos para Métodos de Pago/Ingreso
 type MetodoPagoCategoria = { id: string; nombre: string; tipo: 'Ingreso' | 'Egreso'; activa: boolean; color?: string | null; subcategorias: { id: string; nombre: string; activa: boolean }[] };
 
-type Seccion = 'categorias' | 'metodos';
+type Seccion = 'categorias' | 'metodos' | 'pc';
 
 export const GestionCategorias: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -41,9 +41,19 @@ export const GestionCategorias: React.FC = () => {
   // NUEVO: control de sección y tipo para métodos
   const [seccion, setSeccion] = useState<Seccion>('categorias');
   const [tipoMetodo, setTipoMetodo] = useState<'Egreso' | 'Ingreso'>('Egreso');
+  // Proveedores/Clientes
+  const [pcItems, setPcItems] = useState<Array<{ id: string; nombre: string; tipo?: 'Proveedor' | 'Cliente'; activa: boolean; color?: string | null; contacto?: string | null; telefono?: string | null; email?: string | null; ubicacion?: string | null; notas?: string | null }>>([]);
+  const [tipoPC, setTipoPC] = useState<'Proveedor' | 'Cliente'>('Proveedor');
+  const [loadingPC, setLoadingPC] = useState(false);
+  const [errorPC, setErrorPC] = useState<string | null>(null);
+  const [noTablaPC, setNoTablaPC] = useState<boolean>(false);
+  const [pcModal, setPcModal] = useState<null | { nombre: string }>(null);
+  const [pcDetails, setPcDetails] = useState<null | { id: string; nombre: string; contacto: string; telefono: string; email: string; ubicacion: string; notas: string }>(null);
+  const [editPcId, setEditPcId] = useState<string | null>(null);
 
   const handleBackgroundClick = () => {
     if (expandedId) setExpandedId(null);
+    if (editPcId) setEditPcId(null);
   };
 
   const getTextColorForBg = (hex?: string | null) => {
@@ -128,7 +138,8 @@ export const GestionCategorias: React.FC = () => {
   useEffect(() => { load(); }, []);
   useEffect(() => {
     if (seccion === 'metodos') loadMetodos(tipoMetodo);
-  }, [seccion, tipoMetodo]);
+    if (seccion === 'pc') loadPC(tipoPC);
+  }, [seccion, tipoMetodo, tipoPC]);
 
   useEffect(() => {
     if (modalOpen?.tipo === 'cat') {
@@ -182,6 +193,74 @@ export const GestionCategorias: React.FC = () => {
       await loadMetodos(tipoMetodo);
     } catch (e: any) {
       alert(e.message || 'Error creando método');
+    }
+  };
+
+  // Proveedores/Clientes CRUD
+  const loadPC = async (tipo: 'Proveedor' | 'Cliente') => {
+    setLoadingPC(true);
+    setErrorPC(null);
+    setNoTablaPC(false);
+    try {
+      const tableName = tipo === 'Proveedor' ? 'proveedores' : 'clientes';
+      const { data, error } = await supabase
+        .from(tableName)
+        .select('id,nombre,color,activa,contacto,telefono,email,ubicacion,notas')
+        .order('nombre');
+      if (error) throw error;
+      setPcItems((data || []) as any);
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      console.error('loadPC error:', e);
+      setErrorPC(msg);
+      // Solo marcar como "tabla no existe" si es error de tabla indefinida 42P01
+      const code = e?.code || e?.details || '';
+      if (String(code).includes('42P01') || /relation .* does not exist/i.test(msg)) {
+        setNoTablaPC(true);
+      }
+    } finally {
+      setLoadingPC(false);
+    }
+  };
+
+  const crearPC = async (nombre: string) => {
+    try {
+      const tableName = tipoPC === 'Proveedor' ? 'proveedores' : 'clientes';
+      const insertData: any = { nombre, color: '#64748b', activa: true };
+      const { error } = await supabase
+        .from(tableName)
+        .insert(insertData);
+      if (error) throw error;
+      await loadPC(tipoPC);
+    } catch (e: any) {
+      alert(e.message || 'Error creando proveedor/cliente');
+    }
+  };
+
+  const actualizarPC = async (id: string, changes: Partial<{ nombre: string; activa: boolean; color: string }>) => {
+    try {
+      const tableName = tipoPC === 'Proveedor' ? 'proveedores' : 'clientes';
+      let { error } = await supabase
+        .from(tableName)
+        .update(changes as any)
+        .eq('id', id);
+      if (error) throw error;
+      // Optimistic update para no cerrar edición
+      setPcItems(prev => prev.map(it => it.id === id ? ({ ...it, ...changes }) as any : it));
+    } catch (e: any) {
+      alert(e.message || 'Error actualizando');
+    }
+  };
+
+  const eliminarPC = async (id: string) => {
+    if (!confirm('¿Eliminar este registro?')) return;
+    try {
+      const tableName = tipoPC === 'Proveedor' ? 'proveedores' : 'clientes';
+      const { error } = await supabase.from(tableName).delete().eq('id', id);
+      if (error) throw error;
+      await loadPC(tipoPC);
+    } catch (e: any) {
+      alert(e.message || 'Error eliminando');
     }
   };
 
@@ -290,6 +369,19 @@ export const GestionCategorias: React.FC = () => {
               onClick={() => { setSeccion('metodos'); setTipoMetodo('Ingreso'); }}
               className={`px-4 py-1.5 rounded-full text-sm font-medium ${seccion === 'metodos' && tipoMetodo === 'Ingreso' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:text-gray-900'}`}
             >Ingresos</button>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="text-xs text-gray-500 uppercase tracking-wide">Prov/Cliente</span>
+          <div className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 p-1">
+            <button
+              onClick={() => { setSeccion('pc'); setTipoPC('Proveedor'); }}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium ${seccion === 'pc' && tipoPC === 'Proveedor' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:text-gray-900'}`}
+            >Proveedores</button>
+            <button
+              onClick={() => { setSeccion('pc'); setTipoPC('Cliente'); }}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium ${seccion === 'pc' && tipoPC === 'Cliente' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:text-gray-900'}`}
+            >Clientes</button>
           </div>
         </div>
       </div>
@@ -444,7 +536,7 @@ export const GestionCategorias: React.FC = () => {
             );})}
           </div>
         </>
-      ) : (
+      ) : seccion === 'metodos' ? (
         <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
           {noTablaMetodos ? (
             <div className="bg-white rounded-xl shadow-sm border p-4 text-sm text-gray-600">
@@ -561,6 +653,80 @@ export const GestionCategorias: React.FC = () => {
             >
               + Añadir Categoría
             </button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+          {noTablaPC ? (
+            <div className="bg-white rounded-xl shadow-sm border p-4 text-sm text-gray-600">La tabla "{tipoPC === 'Proveedor' ? 'proveedores' : 'clientes'}" no existe.</div>
+          ) : loadingPC ? (
+            <div className="text-sm text-gray-600">Cargando…</div>
+          ) : errorPC ? (
+            <div className="text-sm text-red-600">{errorPC}</div>
+          ) : (
+            pcItems.map(item => (
+              <div
+                key={item.id}
+                className="bg-white rounded-xl shadow-sm border p-4 overflow-hidden relative cursor-pointer"
+                style={{ borderColor: hexToRgba(item.color, 0.5) }}
+                data-pc-card={item.id}
+                onClick={(e) => { e.stopPropagation(); setEditPcId(item.id); }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="inline-block rounded-md px-2 py-1 text-sm font-semibold truncate max-w-[220px]" style={{ backgroundColor: item.color || '#CBD5E1', color: getTextColorForBg(item.color) }} title={item.nombre}>{item.nombre}</span>
+                  {editPcId === item.id && (
+                  <div className="flex items-center gap-2">
+                    <input type="color" className="w-6 h-6 p-0 border border-gray-300 rounded" value={item.color || '#64748b'} onChange={async (e) => {
+                      try { await actualizarPC(item.id, { color: e.target.value }); }
+                      catch { /* si no existe columna color, ignorar */ }
+                    }} />
+                    <label className="inline-flex items-center gap-1 text-xs text-gray-600">
+                      <input type="checkbox" checked={!!item.activa} onChange={(e) => actualizarPC(item.id, { activa: e.target.checked })} />
+                      Activa
+                    </label>
+                    <button
+                      type="button"
+                      className="text-gray-600 hover:text-blue-600 text-xs px-2 py-1 border rounded"
+                      onClick={() => setPcDetails({
+                        id: item.id,
+                        nombre: item.nombre,
+                        contacto: item.contacto || '',
+                        telefono: item.telefono || '',
+                        email: item.email || '',
+                        ubicacion: item.ubicacion || '',
+                        notas: item.notas || ''
+                      })}
+                    >
+                      Detalles
+                    </button>
+                    <button type="button" title="Eliminar" className="text-gray-500 hover:text-red-600" onClick={() => eliminarPC(item.id)}>
+                      <TrashIcon className="h-5 w-5" />
+                    </button>
+                  </div>
+                  )}
+                </div>
+                {editPcId === item.id ? (
+                  <input
+                    className="w-full bg-white border border-blue-300 rounded-md px-2 py-1 focus:border-blue-400 focus:ring-2 focus:ring-blue-200 outline-none min-w-0"
+                    value={item.nombre}
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => actualizarPC(item.id, { nombre: e.target.value })}
+                    onBlur={() => {
+                      // Cerrar solo si el foco se fue fuera de esta tarjeta
+                      setTimeout(() => {
+                        const activeEl = document.activeElement as HTMLElement | null;
+                        const stillInside = activeEl && activeEl.closest && activeEl.closest(`[data-pc-card="${item.id}"]`);
+                        if (!stillInside) setEditPcId(null);
+                      }, 0);
+                    }}
+                  />
+                ) : null}
+              </div>
+            ))
+          )}
+          <div className="bg-white rounded-xl shadow-sm border p-4 flex items-center justify-center">
+            <button type="button" className="text-xs px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md" onClick={() => setPcModal({ nombre: '' })}>+ Añadir</button>
           </div>
         </div>
       )}
@@ -763,6 +929,58 @@ export const GestionCategorias: React.FC = () => {
               >
                 Guardar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {pcModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-xl w-[380px] space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h4 className="text-lg font-semibold text-gray-900">Nuevo {tipoPC === 'Proveedor' ? 'Proveedor' : 'Cliente'}</h4>
+            <label className="block text-sm font-medium text-gray-700">Nombre
+              <input className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" value={pcModal.nombre} onChange={(e) => setPcModal({ nombre: e.target.value })} placeholder={tipoPC === 'Proveedor' ? 'p. ej. Costco' : 'p. ej. Cliente X'} />
+            </label>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button className="px-4 py-2 text-gray-600 hover:text-gray-800" onClick={() => setPcModal(null)}>Cancelar</button>
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" onClick={async () => { const nombre = (pcModal.nombre || '').trim(); if (!nombre) return; await crearPC(nombre); setPcModal(null); }}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pcDetails && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-xl w-[480px] space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h4 className="text-lg font-semibold text-gray-900">Detalles de {pcDetails.nombre}</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="block text-sm font-medium text-gray-700">Contacto
+                <input className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" value={pcDetails.contacto} onChange={(e) => setPcDetails({ ...pcDetails, contacto: e.target.value })} />
+              </label>
+              <label className="block text-sm font-medium text-gray-700">Teléfono
+                <input className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" value={pcDetails.telefono} onChange={(e) => setPcDetails({ ...pcDetails, telefono: e.target.value })} />
+              </label>
+              <label className="block text-sm font-medium text-gray-700">Email
+                <input type="email" className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" value={pcDetails.email} onChange={(e) => setPcDetails({ ...pcDetails, email: e.target.value })} />
+              </label>
+              <label className="block text-sm font-medium text-gray-700">Ubicación
+                <input className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" value={pcDetails.ubicacion} onChange={(e) => setPcDetails({ ...pcDetails, ubicacion: e.target.value })} />
+              </label>
+            </div>
+            <label className="block text-sm font-medium text-gray-700">Notas
+              <textarea className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" rows={3} value={pcDetails.notas} onChange={(e) => setPcDetails({ ...pcDetails, notas: e.target.value })}></textarea>
+            </label>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button className="px-4 py-2 text-gray-600 hover:text-gray-800" onClick={() => setPcDetails(null)}>Cancelar</button>
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" onClick={async () => {
+                await actualizarPC(pcDetails.id, {
+                  contacto: pcDetails.contacto || null as any,
+                  telefono: pcDetails.telefono || null as any,
+                  email: pcDetails.email || null as any,
+                  ubicacion: pcDetails.ubicacion || null as any,
+                  notas: pcDetails.notas || null as any,
+                } as any);
+                setPcDetails(null);
+              }}>Guardar</button>
             </div>
           </div>
         </div>

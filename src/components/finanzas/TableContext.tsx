@@ -91,14 +91,21 @@ export const tableReducer = (state: TableState, action: TableAction): TableState
       const isCurrentlyOpen = state.activeDropdown?.row === action.payload.row && state.activeDropdown?.col === action.payload.col;
       return {
         ...initialState,
-        focusedCell: action.payload,
+        focusedCell: { row: action.payload.row, col: (action.payload.col as any) === 70 ? 7 : action.payload.col },
         activeDropdown: isCurrentlyOpen ? null : action.payload,
         highlightedDropdownOptionIndex: isCurrentlyOpen ? -1 : 0,
       };
 
     case 'CLOSE_ACTIVE_DROPDOWN':
       if (!state.activeDropdown) return state;
-      return { ...state, activeDropdown: null, highlightedDropdownOptionIndex: -1 };
+      return {
+        ...state,
+        activeDropdown: null,
+        highlightedDropdownOptionIndex: -1,
+        focusedCell: state.activeDropdown.col === (70 as any)
+          ? { row: state.activeDropdown.row, col: 7 }
+          : state.focusedCell
+      };
 
     case 'HIGHLIGHT_DROPDOWN_OPTION':
       if (!state.activeDropdown) return state;
@@ -115,7 +122,14 @@ export const tableReducer = (state: TableState, action: TableAction): TableState
       return { ...state, highlightedDropdownOptionIndex: newIndex };
 
     case 'SELECT_DROPDOWN_OPTION':
-        return { ...state, activeDropdown: null, highlightedDropdownOptionIndex: -1 };
+        return {
+          ...state,
+          activeDropdown: null,
+          highlightedDropdownOptionIndex: -1,
+          focusedCell: state.activeDropdown && state.activeDropdown.col === (70 as any)
+            ? { row: state.activeDropdown.row, col: 7 }
+            : state.focusedCell
+        };
 
     default:
       return state;
