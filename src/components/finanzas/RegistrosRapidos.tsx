@@ -66,6 +66,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
   // const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // ===== REFERENCIAS =====
   const cellRefs = useRef<Map<string, HTMLElement>>(new Map());
@@ -192,6 +193,14 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     setMovimientos(prev => prev.filter(mov => mov.id !== id));
   };
 
+  const confirmarEliminarFila = () => {
+    if (!confirmDeleteId) return;
+    eliminarFila(confirmDeleteId);
+    setConfirmDeleteId(null);
+  };
+
+  const cancelarEliminarFila = () => setConfirmDeleteId(null);
+
   const editarFila = (id: string) => {
     console.log('Editar fila:', id);
   };
@@ -204,19 +213,34 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
 
     if (metaKey || ctrlKey) return; // Permitir copy/paste etc.
 
+    // Helpers locales
     const isTextInputFocused = () => {
       if (!focusedCell) return false;
-      const textInputCols = [4, 5, 6]; // Solo Proveedor, Descripción, Monto (sin fecha)
+      const textInputCols = [4, 5, 6];
       return textInputCols.includes(focusedCell.col);
     };
-    
     const isDateInputFocused = () => {
       if (!focusedCell) return false;
-      return focusedCell.col === 7; // Solo fecha
+      return focusedCell.col === 7;
     };
 
-    // --- PRIORIDAD 1: Un dropdown está activo ---
-    if (activeDropdown) {
+    // --- PRIORIDAD 0: Modal de confirmación de borrado activo ---
+    if (confirmDeleteId) {
+      if (key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        confirmarEliminarFila();
+      } else if (key === 'Escape' || key === 'Tab') {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelarEliminarFila();
+      }
+      return;
+    }
+
+    // --- PRIORIDAD 1: Dropdown activo (solo si la celda enfocada coincide) ---
+    const dropdownIsForFocusedCell = !!activeDropdown && !!focusedCell && activeDropdown.row === focusedCell.row && activeDropdown.col === focusedCell.col;
+    if (activeDropdown && dropdownIsForFocusedCell) {
       // Manejar teclas globalmente para evitar que la página haga scroll
       const optionsCount = 9999; // real se gestiona en reducer por límites
       if (key === 'ArrowUp' || key === 'ArrowDown') {
@@ -242,6 +266,11 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
       }
       return;
+    } else if (activeDropdown && !dropdownIsForFocusedCell) {
+      // Si hay un dropdown abierto de otra celda, ciérralo en cuanto se presione una tecla de navegación/acción
+      if (key === 'Enter' || key.startsWith('Arrow') || key === 'Escape' || key === 'Tab') {
+        dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
+      }
     }
 
     // --- PRIORIDAD 2: Una celda de texto está en modo edición ---
@@ -249,6 +278,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
       if (key === 'Escape') {
         event.preventDefault();
         dispatch({ type: 'STOP_EDITING' }); // Cancelar cambios se maneja en el reducer/componente
+        return;
       } else if (key === 'Enter' || key === 'Tab') {
         event.preventDefault();
         dispatch({ type: 'STOP_EDITING' });
@@ -257,8 +287,16 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         } else if (key === 'Tab' && shiftKey) {
           dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'left', maxRows: movimientos.length, maxCols: 12 } });
         }
+        return;
+      } else if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
+        // Salir de edición y navegar con flechas incluso si el input está activo
+        event.preventDefault();
+        const direction = key.replace('Arrow', '').toLowerCase() as 'up' | 'down' | 'left' | 'right';
+        dispatch({ type: 'STOP_EDITING' });
+        dispatch({ type: 'MOVE_FOCUS', payload: { direction, maxRows: movimientos.length, maxCols: 12 } });
+        return;
       }
-      // Dejar que el input maneje las teclas alfanuméricas
+      // Dejar que el input maneje otras teclas
       return;
     }
 
@@ -287,11 +325,10 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         // Lógica para decidir si editar o abrir dropdown
         const { col } = focusedCell;
         const dropdownCols = [2, 3, 8, 9]; // Categoría, Subcat, Detalles Rec., Estado
-        const toggleCols = [0, 1]; // Modo, Tipo
         const textInputCols = [4, 5, 6]; // Proveedor, Descripción, Monto
         
         if (textInputCols.includes(col)) {
-          // Para inputs de texto: si no estaba editando, empezar a editar; si estaba, confirmar y moverse a la derecha
+          // Para inputs de texto
           if (!state.isEditing) {
             console.log('RegistrosRapidos - Enter en input de texto, iniciando edición append');
             dispatch({ type: 'START_APPEND_EDITING' });
@@ -301,12 +338,32 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
             dispatch({ type: 'STOP_EDITING' });
             dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: movimientos.length, maxCols: 12 } });
           }
-        } else if (col === 7) {
-          // Para fecha, usar modo append (Enter = editar existente)
-          console.log('RegistrosRapidos - Enter en fecha, iniciando edición append');
+        } else if (col === 0 || col === 1) {
+          // Enter en MODO/TIPO: alternar y cerrar cualquier dropdown abierto de otra celda
           event.preventDefault();
           event.stopPropagation();
-          dispatch({ type: 'START_APPEND_EDITING' });
+          if (state.activeDropdown) {
+            dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
+          }
+          const mov = movimientos[focusedCell.row];
+          if (mov) {
+            if (col === 0) {
+              const nuevo = mov.modo === 'Unico' ? 'Recurrente' : 'Unico';
+              actualizarMovimiento(mov.id, 'modo', nuevo);
+            } else {
+              const nuevo = mov.tipo === 'Ingreso' ? 'Egreso' : 'Ingreso';
+              actualizarMovimiento(mov.id, 'tipo', nuevo);
+            }
+          }
+        } else if (col === 7) {
+          // Para fecha, simplemente enfocamos el componente. Él manejará su estado de edición.
+          console.log('RegistrosRapidos - Enter en fecha, iniciando edición');
+          event.preventDefault();
+          event.stopPropagation();
+          const cellElement = cellRefs.current.get(getCellKey(focusedCell.row, 7));
+          if (cellElement && (cellElement as any).smartDateInput) {
+            (cellElement as any).smartDateInput.focus();
+          }
         } else if (dropdownCols.includes(col)) {
           console.log('RegistrosRapidos - Enter en dropdown, abriendo');
           event.preventDefault();
@@ -322,19 +379,21 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
               if (pop && pop.open) pop.open();
             }, 0);
           }
-        } else if (toggleCols.includes(col)) {
-          // Enter en celdas toggle: alternar valor
+        } else if (col === 10) {
+          // Enter en FISCAL: alternar checkbox
+          event.preventDefault();
+          event.stopPropagation();
           const mov = movimientos[focusedCell.row];
           if (mov) {
-            if (col === 0) {
-              const nuevo = mov.modo === 'Unico' ? 'Recurrente' : 'Unico';
-              console.log('RegistrosRapidos - Enter toggle MODO:', { de: mov.modo, a: nuevo });
-              actualizarMovimiento(mov.id, 'modo', nuevo);
-            } else if (col === 1) {
-              const nuevo = mov.tipo === 'Ingreso' ? 'Egreso' : 'Ingreso';
-              console.log('RegistrosRapidos - Enter toggle TIPO:', { de: mov.tipo, a: nuevo });
-              actualizarMovimiento(mov.id, 'tipo', nuevo);
-            }
+            actualizarMovimiento(mov.id, 'es_fiscal', !mov.es_fiscal);
+          }
+        } else if (col === 11) {
+          // Enter en ACCIONES: solicitar confirmación
+          event.preventDefault();
+          event.stopPropagation();
+          const mov = movimientos[focusedCell.row];
+          if (mov) {
+            setConfirmDeleteId(mov.id);
           }
         }
         // Añadir lógica para Toggles y Checkbox
@@ -387,36 +446,30 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
             }
           }
           // Manejar fecha (columna 7)
-          else if (focusedCell.col === 7) {
-            console.log('RegistrosRapidos - Type-to-edit en fecha:', { key, row: focusedCell.row, isEditing: state.isEditing });
+          else if (focusedCell.col === 7 && /^[0-9]$/.test(key)) {
+            console.log('RegistrosRapidos - Type-to-edit en fecha:', { key, row: focusedCell.row });
 
-            // Capturar siempre el dígito y delegarlo al SmartDateInput para evitar pérdidas
             event.preventDefault();
             event.stopPropagation();
 
-            // Si no estamos en edición aún, iniciar en overwrite
+            // Asegurar estado de edición activo para la celda (persistir entre dígitos)
             if (!state.isEditing) {
               dispatch({ type: 'START_OVERWRITE_EDITING' });
             }
 
-            // Enfocar y pasar la tecla al SmartDateInput
-            setTimeout(() => {
-              const cellElement = document.querySelector(`[data-row="${focusedCell.row}"][data-col="7"]`);
-              console.log('RegistrosRapidos - Buscando celda de fecha:', { cellElement: !!cellElement });
-              if (cellElement && (cellElement as any).smartDateInput) {
-                const smartDateInput = (cellElement as any).smartDateInput;
-                console.log('RegistrosRapidos - SmartDateInput encontrado:', { smartDateInput: !!smartDateInput });
-                if (smartDateInput.focus) smartDateInput.focus();
-                if (smartDateInput.handleDigitInput) smartDateInput.handleDigitInput(key);
-              } else {
-                console.log('RegistrosRapidos - SmartDateInput no encontrado en la celda');
-              }
-            }, 20);
+            // Delegar directamente el dígito al componente hijo
+            const cellElement = cellRefs.current.get(getCellKey(focusedCell.row, 7));
+            if (cellElement && (cellElement as any).smartDateInput) {
+              const smartDateInput = (cellElement as any).smartDateInput;
+              smartDateInput.processDigit(key);
+            } else {
+              console.log('RegistrosRapidos - SmartDateInput no encontrado en la celda');
+            }
           }
         }
       }
     }
-  }, [state, movimientos, actualizarMovimiento]);
+  }, [state, movimientos, actualizarMovimiento, eliminarFila, confirmDeleteId]);
 
 
   // ===== EFECTOS SECUNDARIOS =====
@@ -431,6 +484,15 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
       document.removeEventListener('keydown', handleKeyDownWrapper, true);
     };
   }, [handleTableKeyDown]);
+
+  // Efectos para listeners externos
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e && e.detail && e.detail.id) setConfirmDeleteId(e.detail.id);
+    };
+    window.addEventListener('rr-confirm-delete' as any, handler);
+    return () => window.removeEventListener('rr-confirm-delete' as any, handler);
+  }, []);
 
   // Efecto para enfocar la primera celda cuando se añade una nueva fila
   useEffect(() => {
@@ -658,7 +720,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
                 <col style={{ width: '60px' }} />
                 <col style={{ width: '60px' }} />
                 <col style={{ width: '100px' }} />
-                <col style={{ width: '120px' }} />
+                <col style={{ width: '100px' }} />
                 <col style={{ width: '70px' }} />
                 <col style={{ width: '60px' }} />
                 <col style={{ width: '80px' }} />
@@ -755,6 +817,21 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
             </div>
           </div>
         </div>
+
+        {/* Modal de confirmación de borrado */}
+        {confirmDeleteId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/30" onClick={cancelarEliminarFila}></div>
+            <div className="relative bg-white rounded-lg shadow-lg p-4 w-72">
+              <h3 className="text-sm font-semibold mb-2">Eliminar fila</h3>
+              <p className="text-xs text-gray-600 mb-3">¿Deseas eliminar esta fila? Esta acción no se puede deshacer.</p>
+              <div className="flex justify-end gap-2">
+                <button onClick={cancelarEliminarFila} className="px-3 py-1 text-xs rounded border border-gray-300">Cancelar (Esc)</button>
+                <button onClick={confirmarEliminarFila} className="px-3 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700">Eliminar (Enter)</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </TableContext.Provider>
   );

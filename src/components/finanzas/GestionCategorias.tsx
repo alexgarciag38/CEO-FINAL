@@ -1,22 +1,35 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { PencilSquareIcon, TrashIcon, Bars3Icon } from '@heroicons/react/24/outline';
 import { supabase } from '@/lib/supabase';
 
 type Categoria = { id: string; nombre: string; tipo: 'Ingreso' | 'Egreso'; activa: boolean; color?: string | null; subcategorias: Subcategoria[] };
 type Subcategoria = { id: string; nombre: string; activa: boolean };
 
+// NUEVO: Tipos para Métodos de Pago/Ingreso
+type MetodoPagoCategoria = { id: string; nombre: string; tipo: 'Ingreso' | 'Egreso'; activa: boolean; color?: string | null; subcategorias: { id: string; nombre: string; activa: boolean }[] };
+
+type Seccion = 'categorias' | 'metodos';
+
 export const GestionCategorias: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
 
+  // Métodos de pago/ingreso - estado
+  const [metCats, setMetCats] = useState<MetodoPagoCategoria[]>([]);
+  const [loadingMetodos, setLoadingMetodos] = useState(false);
+  const [errorMetodos, setErrorMetodos] = useState<string | null>(null);
+  const [noTablaMetodos, setNoTablaMetodos] = useState<boolean>(false);
+
   const [modalOpen, setModalOpen] = useState<null | { tipo: 'cat' | 'sub' | 'saldo'; categoriaId?: string }>(null);
   const [formNombre, setFormNombre] = useState('');
   const [formTipo, setFormTipo] = useState<'Ingreso' | 'Egreso'>('Egreso');
   const [formColor, setFormColor] = useState<string>('#4A90E2');
-  const [formActiva, setFormActiva] = useState<boolean>(true);
+  
   const [tipoSeleccion, setTipoSeleccion] = useState<'Egreso' | 'Ingreso'>('Egreso');
   const [editSub, setEditSub] = useState<null | { id: string; nombre: string }>(null);
+  const [metModal, setMetModal] = useState<null | { tipo: 'met-cat' | 'met-sub'; categoriaId?: string; nombre: string }>(null);
+  const [editMetodo, setEditMetodo] = useState<null | { id: string; nombre: string; color: string; activa: boolean }>(null);
   const [saldoInicial, setSaldoInicial] = useState('');
   const nombreInputRef = useRef<HTMLInputElement | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -24,6 +37,10 @@ export const GestionCategorias: React.FC = () => {
   const [order, setOrder] = useState<Record<string, number>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [previewIds, setPreviewIds] = useState<string[] | null>(null);
+
+  // NUEVO: control de sección y tipo para métodos
+  const [seccion, setSeccion] = useState<Seccion>('categorias');
+  const [tipoMetodo, setTipoMetodo] = useState<'Egreso' | 'Ingreso'>('Egreso');
 
   const handleBackgroundClick = () => {
     if (expandedId) setExpandedId(null);
@@ -78,11 +95,43 @@ export const GestionCategorias: React.FC = () => {
     }
   };
 
+  // Carga de métodos de pago/ingreso
+  const loadMetodos = async (tipo: 'Ingreso' | 'Egreso') => {
+    setLoadingMetodos(true);
+    setErrorMetodos(null);
+    setNoTablaMetodos(false);
+    try {
+      const { data, error } = await supabase
+        .from('metodos_pago_categorias')
+        .select('id,nombre,tipo,activa,color,metodos_pago_subcategorias(id,nombre,activa)')
+        .eq('tipo', tipo)
+        .order('nombre', { ascending: true });
+      if (error) throw error;
+      const mapped: MetodoPagoCategoria[] = (data || []).map((c: any) => ({
+        id: c.id,
+        nombre: c.nombre,
+        tipo: c.tipo,
+        activa: !!c.activa,
+        color: c.color,
+        subcategorias: (c.metodos_pago_subcategorias || []).map((s: any) => ({ id: s.id, nombre: s.nombre, activa: !!s.activa }))
+      }));
+      setMetCats(mapped);
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      setErrorMetodos(msg);
+      if (msg.toLowerCase().includes('metodos_pago_categorias')) setNoTablaMetodos(true);
+    } finally {
+      setLoadingMetodos(false);
+    }
+  };
+
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (seccion === 'metodos') loadMetodos(tipoMetodo);
+  }, [seccion, tipoMetodo]);
 
   useEffect(() => {
     if (modalOpen?.tipo === 'cat') {
-      // Enfocar el input cuando se abre el modal
       setTimeout(() => nombreInputRef.current?.focus(), 0);
     }
   }, [modalOpen]);
@@ -118,73 +167,83 @@ export const GestionCategorias: React.FC = () => {
     dragIdRef.current = null;
   };
 
-  const openNewCategoria = () => { setFormNombre(''); setFormTipo('Egreso'); setFormColor('#4A90E2'); setFormActiva(true); setModalOpen({ tipo: 'cat' }); };
+  const openNewCategoria = () => { setFormNombre(''); setFormTipo('Egreso'); setFormColor('#4A90E2'); setModalOpen({ tipo: 'cat' }); };
   const openNewSubcategoria = (categoriaId: string) => { setFormNombre(''); setModalOpen({ tipo: 'sub', categoriaId }); };
   const openSaldoInicial = () => { setSaldoInicial(''); setModalOpen({ tipo: 'saldo' }); };
 
-  // Sin headers manuales: el cliente de Supabase adjunta Authorization/apikey automáticamente
-
-  const handleSaveCategoria = async () => {
+  // Métodos - CRUD
+  const crearMetodo = async (nombre: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('No autenticado');
-      if (!modalOpen) return;
-      
-      if (modalOpen.tipo === 'cat') {
-        if (modalOpen.categoriaId) {
-          const { error } = await supabase.functions.invoke('actualizar-categoria', {
-            body: { id: modalOpen.categoriaId, nuevo_nombre: formNombre, color: formColor, esta_activa: formActiva }
-          });
-          if (error) throw error;
-        } else {
-          const { error } = await supabase.functions.invoke('crear-categoria', {
-            body: { nombre: formNombre, tipo: formTipo, color: formColor, activa: formActiva }
-          });
-          if (error) throw error;
-        }
-      } else if (modalOpen.tipo === 'sub') {
-        const { error } = await supabase.functions.invoke('crear-subcategoria', {
-          body: { nombre: formNombre, categoria_id: modalOpen.categoriaId }
-        });
-        if (error) throw error;
-      } else if (modalOpen.tipo === 'saldo') {
-        const { error } = await supabase
-          .from('configuracion_global')
-          .upsert({
-            clave: 'saldo_inicial_caja',
-            valor: saldoInicial,
-            descripcion: 'Saldo inicial de caja para el dashboard financiero'
-          });
-        if (error) throw error;
-      }
-      
-      setModalOpen(null);
-      await load();
+      const color = '#4A90E2';
+      const { error } = await supabase
+        .from('metodos_pago_categorias')
+        .insert({ nombre, tipo: tipoMetodo, activa: true, color });
+      if (error) throw error;
+      await loadMetodos(tipoMetodo);
     } catch (e: any) {
-      alert(e.message || 'Error');
+      alert(e.message || 'Error creando método');
     }
   };
 
-  const handleInlineUpdateCategoria = async (id: string, changes: Partial<{ nombre: string; activa: boolean }>) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { alert('No autenticado'); return; }
-    const { error } = await supabase.functions.invoke('actualizar-categoria', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-      body: { id, ...(changes.nombre !== undefined ? { nuevo_nombre: changes.nombre } : {}), ...(changes.activa !== undefined ? { esta_activa: changes.activa } : {}), ...(changes.color !== undefined ? { color: changes.color } : {}) }
-    });
-    if (error) { alert((error as any).message || 'Error actualizando'); return; }
-    await load();
+  const actualizarMetodo = async (id: string, changes: Partial<{ nombre: string; activa: boolean; color: string }>) => {
+    try {
+      const { error } = await supabase
+        .from('metodos_pago_categorias')
+        .update(changes as any)
+        .eq('id', id);
+      if (error) throw error;
+      await loadMetodos(tipoMetodo);
+    } catch (e: any) {
+      alert(e.message || 'Error actualizando');
+    }
   };
 
-  const handleInlineUpdateSubcategoria = async (id: string, changes: Partial<{ nombre: string; activa: boolean }>) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { alert('No autenticado'); return; }
-    const { error } = await supabase.functions.invoke('actualizar-subcategoria', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-      body: { id, ...(changes.nombre !== undefined ? { nuevo_nombre: changes.nombre } : {}), ...(changes.activa !== undefined ? { esta_activa: changes.activa } : {}) }
-    });
-    if (error) { alert((error as any).message || 'Error actualizando'); return; }
-    await load();
+  const eliminarMetodo = async (id: string) => {
+    if (!confirm('¿Eliminar este método?')) return;
+    try {
+      const { error } = await supabase.from('metodos_pago_categorias').delete().eq('id', id);
+      if (error) throw error;
+      await loadMetodos(tipoMetodo);
+    } catch (e: any) {
+      alert(e.message || 'Error eliminando');
+    }
+  };
+
+  // Subcategorías de métodos
+  const crearMetodoSub = async (categoriaId: string, nombre: string) => {
+    try {
+      const { error } = await supabase
+        .from('metodos_pago_subcategorias')
+        .insert({ categoria_id: categoriaId, nombre, activa: true });
+      if (error) throw error;
+      await loadMetodos(tipoMetodo);
+    } catch (e: any) {
+      alert(e.message || 'Error creando subcategoría');
+    }
+  };
+
+  const actualizarMetodoSub = async (id: string, changes: Partial<{ nombre: string; activa: boolean }>) => {
+    try {
+      const { error } = await supabase
+        .from('metodos_pago_subcategorias')
+        .update(changes as any)
+        .eq('id', id);
+      if (error) throw error;
+      await loadMetodos(tipoMetodo);
+    } catch (e: any) {
+      alert(e.message || 'Error actualizando subcategoría');
+    }
+  };
+
+  const eliminarMetodoSub = async (id: string) => {
+    if (!confirm('¿Eliminar esta subcategoría?')) return;
+    try {
+      const { error } = await supabase.from('metodos_pago_subcategorias').delete().eq('id', id);
+      if (error) throw error;
+      await loadMetodos(tipoMetodo);
+    } catch (e: any) {
+      alert(e.message || 'Error eliminando subcategoría');
+    }
   };
 
   if (loading) return <div className="p-4">Cargando…</div>;
@@ -205,141 +264,306 @@ export const GestionCategorias: React.FC = () => {
         </div>
       </div>
 
-      {/* Segmented control tipo */}
-      <div className="flex items-center">
-        <div className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 p-1">
-          <button
-            onClick={() => setTipoSeleccion('Egreso')}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium ${tipoSeleccion === 'Egreso' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:text-gray-900'}`}
-          >Egresos</button>
-          <button
-            onClick={() => setTipoSeleccion('Ingreso')}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium ${tipoSeleccion === 'Ingreso' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:text-gray-900'}`}
-          >Ingresos</button>
+      {/* Selectores dobles: Categorías / Métodos */}
+      <div className="flex items-start gap-6">
+        <div className="flex flex-col gap-2">
+          <span className="text-xs text-gray-500 uppercase tracking-wide">Categorías</span>
+          <div className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 p-1">
+            <button
+              onClick={() => { setSeccion('categorias'); setTipoSeleccion('Egreso'); }}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium ${seccion === 'categorias' && tipoSeleccion === 'Egreso' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:text-gray-900'}`}
+            >Egresos</button>
+            <button
+              onClick={() => { setSeccion('categorias'); setTipoSeleccion('Ingreso'); }}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium ${seccion === 'categorias' && tipoSeleccion === 'Ingreso' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:text-gray-900'}`}
+            >Ingresos</button>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="text-xs text-gray-500 uppercase tracking-wide">Método de pago</span>
+          <div className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 p-1">
+            <button
+              onClick={() => { setSeccion('metodos'); setTipoMetodo('Egreso'); }}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium ${seccion === 'metodos' && tipoMetodo === 'Egreso' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:text-gray-900'}`}
+            >Egresos</button>
+            <button
+              onClick={() => { setSeccion('metodos'); setTipoMetodo('Ingreso'); }}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium ${seccion === 'metodos' && tipoMetodo === 'Ingreso' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:text-gray-900'}`}
+            >Ingresos</button>
+          </div>
         </div>
       </div>
 
-      {/* Grid de categorías */}
-      <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(1, minmax(0, 1fr))' }}>
-        <div className="hidden sm:grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1.5rem' }} />
-      </div>
+      {/* Sección dinámica */}
+      {seccion === 'categorias' ? (
+        <>
+          {/* Grid de categorías */}
+          <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(1, minmax(0, 1fr))' }}>
+            <div className="hidden sm:grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1.5rem' }} />
+          </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-        {(previewIds
-          ? previewIds.map(id => categorias.find(c => c.id === id)).filter((x): x is Categoria => !!x)
-          : categorias
-              .filter(c => c.tipo === tipoSeleccion)
-              .sort((a,b) => (order[a.id] ?? 0) - (order[b.id] ?? 0)))
-          .map(cat => {
-          const isExpanded = expandedId === cat.id;
-          return (
-          <div
-            key={cat.id}
-            className="bg-white rounded-xl shadow-sm border p-4 overflow-hidden relative"
-            style={{ borderColor: hexToRgba(cat.color, 0.5) }}
-            onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : cat.id); }}
-            onDragOver={onDragOver}
-            onDragEnter={() => onDragEnter(cat.id, categorias.filter(c => c.tipo === tipoSeleccion).sort((a,b) => (order[a.id] ?? 0) - (order[b.id] ?? 0)).map(c => c.id))}
-            onDrop={onDropOn}
-            style={draggingId === cat.id ? { opacity: 0.6, transform: 'scale(0.98)', borderColor: hexToRgba(cat.color, 0.8) } as any : { borderColor: hexToRgba(cat.color, 0.5) }}
-          >
-            {/* Header tarjeta */}
-            <div className="flex items-center justify-between mb-3">
-              <button
-                type="button"
-                aria-expanded={isExpanded}
-                onClick={() => setExpandedId(isExpanded ? null : cat.id)}
-                className="flex items-center gap-2 min-w-0 hover:opacity-90 focus:outline-none"
+          <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+            {(previewIds
+              ? previewIds.map(id => categorias.find(c => c.id === id)).filter((x): x is Categoria => !!x)
+              : categorias
+                  .filter(c => c.tipo === tipoSeleccion)
+                  .sort((a,b) => (order[a.id] ?? 0) - (order[b.id] ?? 0)))
+              .map(cat => {
+              const isExpanded = expandedId === cat.id;
+              return (
+              <div
+                key={cat.id}
+                className="bg-white rounded-xl shadow-sm border p-4 overflow-hidden relative"
+                onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : cat.id); }}
+                onDragOver={onDragOver}
+                onDragEnter={() => onDragEnter(cat.id, categorias.filter(c => c.tipo === tipoSeleccion).sort((a,b) => (order[a.id] ?? 0) - (order[b.id] ?? 0)).map(c => c.id))}
+                onDrop={onDropOn}
+                style={draggingId === cat.id ? { opacity: 0.6, transform: 'scale(0.98)', borderColor: hexToRgba(cat.color, 0.8) } as any : { borderColor: hexToRgba(cat.color, 0.5) }}
               >
-                <span
-                  className="inline-block rounded-md px-2 py-1 text-sm font-semibold truncate max-w-[220px]"
-                  style={{ backgroundColor: cat.color || '#CBD5E1', color: getTextColorForBg(cat.color) }}
-                  title={cat.nombre}
-                >
-                  {cat.nombre}
-                </span>
-              </button>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400 cursor-grab active:cursor-grabbing" title="Arrastra para reordenar" draggable onDragStart={() => onDragStart(cat.id, categorias.filter(c => c.tipo === tipoSeleccion).sort((a,b) => (order[a.id] ?? 0) - (order[b.id] ?? 0)).map(c => c.id))} onClick={(e) => e.stopPropagation()}>
-                  <Bars3Icon className="h-5 w-5" />
-                </span>
-                {isExpanded && (
+                {/* Header tarjeta */}
+                <div className="flex items-center justify-between mb-3">
                   <button
                     type="button"
-                    title="Editar categoría"
-                    className="text-gray-500 hover:text-blue-600"
-                    onClick={(e) => { e.stopPropagation(); setFormNombre(cat.nombre); setFormTipo(cat.tipo); setFormColor(cat.color || '#4A90E2'); setModalOpen({ tipo: 'cat', categoriaId: cat.id }); }}
+                    aria-expanded={isExpanded}
+                    onClick={() => setExpandedId(isExpanded ? null : cat.id)}
+                    className="flex items-center gap-2 min-w-0 hover:opacity-90 focus:outline-none"
                   >
-                    <PencilSquareIcon className="h-5 w-5" />
+                    <span
+                      className="inline-block rounded-md px-2 py-1 text-sm font-semibold truncate max-w-[220px]"
+                      style={{ backgroundColor: cat.color || '#CBD5E1', color: getTextColorForBg(cat.color) }}
+                      title={cat.nombre}
+                    >
+                      {cat.nombre}
+                    </span>
                   </button>
-                )}
-                <label className="inline-flex items-center gap-2 text-xs text-gray-600">
-                  <input type="checkbox" checked={!!cat.activa} disabled={!isExpanded} onChange={(e) => handleInlineUpdateCategoria(cat.id, { activa: e.target.checked })} />
-                  Activa
-                </label>
-              </div>
-            </div>
-
-            {/* Lista de subcategorías */}
-            <div className={`space-y-2 text-sm text-gray-700 ${isExpanded ? '' : 'max-h-40 overflow-y-auto pr-1'}`}
-                 onClick={(e) => e.stopPropagation()}>
-              {cat.subcategorias.map(sub => (
-                <div key={sub.id} className="flex items-center w-full min-w-0 justify-between">
-                  {isExpanded ? (
-                    <input
-                      className="flex-1 bg-white border border-gray-200 rounded-md px-2 py-1 focus:border-blue-400 focus:ring-2 focus:ring-blue-200 outline-none min-w-0"
-                      value={sub.nombre}
-                      onChange={(e) => handleInlineUpdateSubcategoria(sub.id, { nombre: e.target.value })}
-                    />
-                  ) : (
-                    <div className="flex-1 bg-gray-50 border border-gray-200 rounded-md px-2 py-1 text-gray-700 select-none truncate">
-                      {sub.nombre}
-                    </div>
-                  )}
-                  {isExpanded ? (
-                    <div className="flex items-center gap-2 ml-2 text-gray-500 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400 cursor-grab active:cursor-grabbing" title="Arrastra para reordenar" draggable onDragStart={() => onDragStart(cat.id, categorias.filter(c => c.tipo === tipoSeleccion).sort((a,b) => (order[a.id] ?? 0) - (order[b.id] ?? 0)).map(c => c.id))} onClick={(e) => e.stopPropagation()}>
+                      <Bars3Icon className="h-5 w-5" />
+                    </span>
+                    {isExpanded && (
                       <button
                         type="button"
-                        title="Editar subcategoría"
-                        onClick={() => setEditSub({ id: sub.id, nombre: sub.nombre })}
-                        className="hover:text-blue-600"
+                        title="Editar categoría"
+                        className="text-gray-500 hover:text-blue-600"
+                        onClick={(e) => { e.stopPropagation(); setFormNombre(cat.nombre); setFormTipo(cat.tipo); setFormColor(cat.color || '#4A90E2'); setModalOpen({ tipo: 'cat', categoriaId: cat.id }); }}
                       >
-                        <PencilSquareIcon className="h-4 w-4" />
+                        <PencilSquareIcon className="h-5 w-5" />
                       </button>
-                      <button
-                        type="button"
-                        title="Eliminar subcategoría"
-                        onClick={async () => {
-                          if (!confirm('¿Eliminar esta subcategoría?')) return;
-                          const { data: { session } } = await supabase.auth.getSession();
-                          if (!session) { alert('No autenticado'); return; }
-                          const { error } = await supabase.functions.invoke('eliminar-subcategoria', {
+                    )}
+                    <label className="inline-flex items-center gap-2 text-xs text-gray-600">
+                      <input type="checkbox" checked={!!cat.activa} disabled={!isExpanded} onChange={async (e) => {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        if (!session) { alert('No autenticado'); return; }
+                        try {
+                          const { error } = await supabase.functions.invoke('actualizar-categoria', {
                             headers: { Authorization: `Bearer ${session.access_token}` },
-                            body: { id: sub.id }
+                            body: { id: cat.id, activa: e.target.checked }
                           });
-                          if (error) { alert('Error eliminando'); return; }
+                          if (error) throw error;
                           await load();
-                        }}
-                        className="hover:text-red-600"
+                        } catch (err: any) {
+                          alert(err?.message || 'Error actualizando');
+                        }
+                      }} />
+                      Activa
+                    </label>
+                  </div>
+                </div>
+
+                {/* Lista de subcategorías */}
+                <div className={`space-y-2 text-sm text-gray-700 ${isExpanded ? '' : 'max-h-40 overflow-y-auto pr-1'}`}
+                     onClick={(e) => e.stopPropagation()}>
+                  {cat.subcategorias.map(sub => (
+                    <div key={sub.id} className="flex items-center w-full min-w-0 justify-between">
+                      {isExpanded ? (
+                        <input
+                          className="flex-1 bg-white border border-gray-200 rounded-md px-2 py-1 focus:border-blue-400 focus:ring-2 focus:ring-blue-200 outline-none min-w-0"
+                          value={sub.nombre}
+                          onChange={async (e) => {
+                            const nuevo = e.target.value;
+                            try {
+                              const { data: { session } } = await supabase.auth.getSession();
+                              if (!session) throw new Error('No autenticado');
+                              const { error } = await supabase.functions.invoke('actualizar-subcategoria', {
+                                headers: { Authorization: `Bearer ${session.access_token}` },
+                                body: { id: sub.id, nombre: nuevo }
+                              });
+                              if (error) throw error;
+                            } catch (err: any) {
+                              console.error(err);
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="flex-1 bg-gray-50 border border-gray-200 rounded-md px-2 py-1 text-gray-700 select-none truncate">
+                          {sub.nombre}
+                        </div>
+                      )}
+                      {isExpanded ? (
+                        <div className="flex items-center gap-2 ml-2 text-gray-500 shrink-0">
+                          <button
+                            type="button"
+                            title="Editar subcategoría"
+                            onClick={() => setEditSub({ id: sub.id, nombre: sub.nombre })}
+                            className="hover:text-blue-600"
+                          >
+                            <PencilSquareIcon className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Eliminar subcategoría"
+                            onClick={async () => {
+                              if (!confirm('¿Eliminar esta subcategoría?')) return;
+                              const { data: { session } } = await supabase.auth.getSession();
+                              if (!session) { alert('No autenticado'); return; }
+                              const { error } = await supabase.functions.invoke('eliminar-subcategoria', {
+                                headers: { Authorization: `Bearer ${session.access_token}` },
+                                body: { id: sub.id }
+                              });
+                              if (error) { alert('Error eliminando'); return; }
+                              await load();
+                            }}
+                            className="hover:text-red-600"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-6 ml-2" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {isExpanded && (
+                  <div className="mt-4" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => openNewSubcategoria(cat.id)} className="text-xs px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md">+ Añadir Subcategoría</button>
+                  </div>
+                )}
+              </div>
+            );})}
+          </div>
+        </>
+      ) : (
+        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+          {noTablaMetodos ? (
+            <div className="bg-white rounded-xl shadow-sm border p-4 text-sm text-gray-600">
+              La tabla "metodos_pago_categorias" no existe aún. Ejecuta el SQL de creación de catálogo de métodos con categorías y subcategorías.
+            </div>
+          ) : loadingMetodos ? (
+            <div className="text-sm text-gray-600">Cargando métodos…</div>
+          ) : errorMetodos ? (
+            <div className="text-sm text-red-600">{errorMetodos}</div>
+          ) : (
+            metCats.map(cat => {
+              const isExpanded = expandedId === cat.id;
+              return (
+                <div
+                  key={cat.id}
+                  className="bg-white rounded-xl shadow-sm border p-4 overflow-hidden relative"
+                  style={{ borderColor: hexToRgba(cat.color, 0.5) }}
+                  onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : cat.id); }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <button
+                      type="button"
+                      aria-expanded={isExpanded}
+                      onClick={() => setExpandedId(isExpanded ? null : cat.id)}
+                      className="flex items-center gap-2 min-w-0 hover:opacity-90 focus:outline-none"
+                    >
+                      <span
+                        className="inline-block rounded-md px-2 py-1 text-sm font-semibold truncate max-w-[220px]"
+                        style={{ backgroundColor: cat.color || '#CBD5E1', color: getTextColorForBg(cat.color) }}
+                        title={cat.nombre}
                       >
-                        <TrashIcon className="h-4 w-4" />
+                        {cat.nombre}
+                      </span>
+                    </button>
+                    <div className="flex items-center gap-2">
+                      {isExpanded && (
+                        <>
+                          <button
+                            type="button"
+                            className="text-gray-500 hover:text-blue-600"
+                            title="Editar método"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditMetodo({ id: cat.id, nombre: cat.nombre, color: cat.color || '#4A90E2', activa: !!cat.activa });
+                            }}
+                          >
+                            <PencilSquareIcon className="h-5 w-5" />
+                          </button>
+                          <label className="inline-flex items-center gap-1 text-xs text-gray-600">
+                            <input type="checkbox" checked={!!cat.activa} onChange={(e) => actualizarMetodo(cat.id, { activa: e.target.checked })} />
+                            Activa
+                          </label>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        title="Eliminar categoría"
+                        className="text-gray-500 hover:text-red-600"
+                        onClick={(e) => { e.stopPropagation(); eliminarMetodo(cat.id); }}
+                      >
+                        <TrashIcon className="h-5 w-5" />
                       </button>
                     </div>
-                  ) : (
-                    <div className="w-6 ml-2" />
+                  </div>
+
+                  {/* Lista de subcategorías */}
+                  <div className={`space-y-2 text-sm text-gray-700 ${isExpanded ? '' : 'max-h-40 overflow-y-auto pr-1'}`}
+                       onClick={(e) => e.stopPropagation()}>
+                    {cat.subcategorias.map(sub => (
+                      <div key={sub.id} className="flex items-center w-full min-w-0 justify-between">
+                        {isExpanded ? (
+                          <input
+                            className="flex-1 bg-white border border-gray-200 rounded-md px-2 py-1 focus:border-blue-400 focus:ring-2 focus:ring-blue-200 outline-none min-w-0"
+                            value={sub.nombre}
+                            onChange={(e) => actualizarMetodoSub(sub.id, { nombre: e.target.value })}
+                          />
+                        ) : (
+                          <div className="flex-1 bg-gray-50 border border-gray-200 rounded-md px-2 py-1 text-gray-700 select-none truncate">
+                            {sub.nombre}
+                          </div>
+                        )}
+                        {isExpanded ? (
+                          <div className="flex items-center gap-2 ml-2 text-gray-500 shrink-0">
+                            <label className="inline-flex items-center gap-1 text-xs text-gray-600">
+                              <input type="checkbox" checked={!!sub.activa} onChange={(e) => actualizarMetodoSub(sub.id, { activa: e.target.checked })} />
+                              Activa
+                            </label>
+                            <button className="hover:text-red-600" title="Eliminar subcategoría" onClick={() => eliminarMetodoSub(sub.id)}>
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="w-6 ml-2" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {isExpanded && (
+                    <div className="mt-4" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={() => setMetModal({ tipo: 'met-sub', categoriaId: cat.id, nombre: '' })} className="text-xs px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md">+ Añadir Subcategoría</button>
+                    </div>
                   )}
                 </div>
-              ))}
-            </div>
-
-            {isExpanded && (
-              <div className="mt-4" onClick={(e) => e.stopPropagation()}>
-                <button onClick={() => openNewSubcategoria(cat.id)} className="text-xs px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md">+ Añadir Subcategoría</button>
-              </div>
-            )}
+              );
+            })
+          )}
+          {/* Botón para añadir categoría de método */}
+          <div className="bg-white rounded-xl shadow-sm border p-4 flex items-center justify-center">
+            <button
+              type="button"
+              className="text-xs px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
+              onClick={() => setMetModal({ tipo: 'met-cat', nombre: '' })}
+            >
+              + Añadir Categoría
+            </button>
           </div>
-        );})}
-      </div>
+        </div>
+      )}
 
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -424,7 +648,38 @@ export const GestionCategorias: React.FC = () => {
               </button>
               <button 
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium" 
-                onClick={() => modalOpen?.tipo === 'cat' ? handleSaveCategoria() : handleSaveCategoria()}
+                onClick={async () => {
+                  if (modalOpen?.tipo === 'cat') {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session) { alert('No autenticado'); return; }
+                    const isEdit = !!modalOpen.categoriaId;
+                    try {
+                      const { error } = await supabase.functions.invoke(isEdit ? 'actualizar-categoria' : 'crear-categoria', {
+                        headers: { Authorization: `Bearer ${session.access_token}` },
+                        body: isEdit ? { id: modalOpen.categoriaId, nombre: formNombre, color: formColor } : { nombre: formNombre, tipo: formTipo, color: formColor }
+                      });
+                      if (error) throw error;
+                      await load();
+                      setModalOpen(null);
+                    } catch (e: any) {
+                      alert(e.message || 'Error guardando');
+                    }
+                  } else if (modalOpen?.tipo === 'sub') {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session) { alert('No autenticado'); return; }
+                    try {
+                      const { error } = await supabase.functions.invoke('crear-subcategoria', {
+                        headers: { Authorization: `Bearer ${session.access_token}` },
+                        body: { categoria_id: modalOpen.categoriaId, nombre: formNombre }
+                      });
+                      if (error) throw error;
+                      await load();
+                      setModalOpen(null);
+                    } catch (e: any) {
+                      alert(e.message || 'Error guardando subcategoría');
+                    }
+                  }
+                }}
               >
                 {modalOpen.tipo === 'saldo' ? 'Guardar Saldo' : 'Guardar'}
               </button>
@@ -443,7 +698,7 @@ export const GestionCategorias: React.FC = () => {
               <input
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={editSub.nombre}
-                onChange={(e) => setEditSub({ ...editSub, nombre: e.target.value })}
+                onChange={(e) => setEditSub({ id: editSub.id, nombre: e.target.value })}
               />
             </label>
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -453,8 +708,105 @@ export const GestionCategorias: React.FC = () => {
                 onClick={async () => {
                   const nuevo = editSub.nombre.trim();
                   if (!nuevo) return;
-                  await handleInlineUpdateSubcategoria(editSub.id, { nombre: nuevo });
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session) throw new Error('No autenticado');
+                    const { error } = await supabase.functions.invoke('actualizar-subcategoria', {
+                      headers: { Authorization: `Bearer ${session.access_token}` },
+                      body: { id: editSub.id, nombre: nuevo }
+                    });
+                    if (error) throw error;
+                    await load();
+                  } catch (e: any) {
+                    alert(e.message || 'Error guardando');
+                  }
                   setEditSub(null);
+                }}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal crear método (categoría/subcategoría) */}
+      {metModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-xl w-[380px] space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h4 className="text-lg font-semibold text-gray-900">
+              {metModal.tipo === 'met-cat' ? 'Nueva Categoría de Método' : 'Nueva Subcategoría de Método'}
+            </h4>
+            <label className="block text-sm font-medium text-gray-700">
+              Nombre
+              <input
+                className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={metModal.nombre}
+                onChange={(e) => setMetModal({ ...metModal, nombre: e.target.value })}
+                placeholder={metModal.tipo === 'met-cat' ? 'p. ej. Tarjeta de crédito' : 'p. ej. TDC Costco ...'}
+              />
+            </label>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button className="px-4 py-2 text-gray-600 hover:text-gray-800" onClick={() => setMetModal(null)}>Cancelar</button>
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={async () => {
+                  const nombre = (metModal.nombre || '').trim();
+                  if (!nombre) return;
+                  if (metModal.tipo === 'met-cat') {
+                    await crearMetodo(nombre);
+                  } else if (metModal.tipo === 'met-sub' && metModal.categoriaId) {
+                    await crearMetodoSub(metModal.categoriaId, nombre);
+                  }
+                  setMetModal(null);
+                }}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal editar método (nombre, color, activa) */}
+      {editMetodo && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-xl w-[400px] space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h4 className="text-lg font-semibold text-gray-900">Editar Método</h4>
+            <label className="block text-sm font-medium text-gray-700">
+              Nombre
+              <input
+                className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={editMetodo.nombre}
+                onChange={(e) => setEditMetodo({ ...editMetodo, nombre: e.target.value })}
+              />
+            </label>
+            <label className="block text-sm font-medium text-gray-700">
+              Color
+              <input
+                type="color"
+                className="mt-1 w-16 h-8 p-0 border border-gray-300 rounded"
+                value={editMetodo.color}
+                onChange={(e) => setEditMetodo({ ...editMetodo, color: e.target.value })}
+              />
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={!!editMetodo.activa}
+                onChange={(e) => setEditMetodo({ ...editMetodo, activa: e.target.checked })}
+              />
+              Activa
+            </label>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button className="px-4 py-2 text-gray-600 hover:text-gray-800" onClick={() => setEditMetodo(null)}>Cancelar</button>
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={async () => {
+                  const nombre = editMetodo.nombre.trim();
+                  if (!nombre) return;
+                  await actualizarMetodo(editMetodo.id, { nombre, color: editMetodo.color, activa: editMetodo.activa });
+                  setEditMetodo(null);
                 }}
               >
                 Guardar

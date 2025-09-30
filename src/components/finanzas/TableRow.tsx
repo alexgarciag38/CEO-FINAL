@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import IconToggle from '@/components/ui/IconToggle';
 import WorkingSelect, { WorkingSelectRef } from '@/components/ui/WorkingSelect';
-import SmartDateInput from '@/components/ui/SmartDateInput';
+import SmartDateInput, { SmartDateInputRef } from '@/components/ui/SmartDateInput';
 import RecurrencePickerPopover, { RecurrencePickerPopoverRef } from './RecurrencePickerPopover';
 import { LightningIcon, RefreshIcon, LetterIIcon, LetterEIcon, PencilIcon, TrashIcon } from '@/components/ui/ProfessionalIcons';
 import { useTableContext } from './TableContext';
@@ -57,11 +57,12 @@ const TableRow: React.FC<TableRowProps> = ({
   const proveedorInputRef = useRef<HTMLInputElement>(null);
   const descripcionInputRef = useRef<HTMLInputElement>(null);
   const montoInputRef = useRef<HTMLInputElement>(null);
-  const fechaInputRef = useRef<any>(null);
+  const fechaInputRef = useRef<SmartDateInputRef>(null);
   const categoriaSelectRef = useRef<WorkingSelectRef>(null);
   const subcategoriaSelectRef = useRef<WorkingSelectRef>(null);
   const recurrenceRef = useRef<RecurrencePickerPopoverRef>(null);
   const pendingToggleAfterFocusRef = useRef<{ row: number; col: number } | null>(null);
+  const estadoSelectRef = useRef<WorkingSelectRef>(null);
   
   // Exponer funciones del SmartDateInput para el componente padre
   useEffect(() => {
@@ -72,7 +73,7 @@ const TableRow: React.FC<TableRowProps> = ({
         (cellElement as any).smartDateInput = fechaInputRef.current;
       }
     }
-  }, [rowIndex]);
+  }, [rowIndex, fechaInputRef.current]);
 
   // Click behavior: primer click selecciona la celda; si ya está enfocada, el siguiente click abre/cierra el dropdown
   const handleDropdownCellClick = (col: number) => {
@@ -165,46 +166,39 @@ const TableRow: React.FC<TableRowProps> = ({
     if (state.isEditing && state.focusedCell?.row === rowIndex) {
       const col = state.focusedCell.col;
       
-      if (col === 7) {
-        // Manejar SmartDateInput
-        console.log('TableRow - Enfocando SmartDateInput:', { rowIndex, col });
+      // La lógica de foco para SmartDateInput ahora es manejada por el padre (RegistrosRapidos)
+      // a través de la ref. No se necesita lógica aquí.
+      
+      // Manejar inputs de texto normales
+      let inputRef = null;
+      
+      if (col === 4) inputRef = proveedorInputRef.current;
+      else if (col === 5) inputRef = descripcionInputRef.current;
+      else if (col === 6) inputRef = montoInputRef.current;
+      
+      if (inputRef) {
         setTimeout(() => {
-          if (fechaInputRef.current) {
-            console.log('TableRow - fechaInputRef encontrado');
-            // El SmartDateInput se enfoca automáticamente cuando recibe foco
-            // No necesitamos buscar el input interno manualmente
+          inputRef.focus();
+          
+          // Comportamiento diferente según el modo de edición
+          if (state.editMode === 'append') {
+            // Doble clic: cursor al final para editar existente
+            setTimeout(() => {
+              if (inputRef.type !== 'number') {
+                inputRef.setSelectionRange(inputRef.value.length, inputRef.value.length);
+              }
+            }, 10);
           } else {
-            console.log('TableRow - fechaInputRef no encontrado');
+            // Type-to-edit: enfocar input (no limpiar inmediatamente)
+            setTimeout(() => {
+              inputRef.focus();
+              // Seleccionar todo el texto para sobrescribir
+              if (inputRef.type !== 'number') {
+                inputRef.setSelectionRange(0, inputRef.value.length);
+              }
+            }, 50);
           }
         }, 0);
-      } else {
-        // Manejar inputs de texto normales
-        let inputRef = null;
-        
-        if (col === 4) inputRef = proveedorInputRef.current;
-        else if (col === 5) inputRef = descripcionInputRef.current;
-        else if (col === 6) inputRef = montoInputRef.current;
-        
-        if (inputRef) {
-          setTimeout(() => {
-            inputRef.focus();
-            
-            // Comportamiento diferente según el modo de edición
-            if (state.editMode === 'append') {
-              // Doble clic: cursor al final para editar existente
-              setTimeout(() => {
-                inputRef.setSelectionRange(inputRef.value.length, inputRef.value.length);
-              }, 10);
-            } else {
-              // Type-to-edit: enfocar input (no limpiar inmediatamente)
-              setTimeout(() => {
-                inputRef.focus();
-                // Seleccionar todo el texto para sobrescribir
-                inputRef.setSelectionRange(0, inputRef.value.length);
-              }, 50);
-            }
-          }, 0);
-        }
       }
     }
   }, [state.isEditing, state.editMode, state.focusedCell?.row, state.focusedCell?.col, rowIndex]);
@@ -315,12 +309,6 @@ const TableRow: React.FC<TableRowProps> = ({
             onChange={(e) => onUpdate(movimiento.id, 'proveedor_cliente', e.target.value)}
               className="w-full px-1 py-1 text-xs border border-blue-500 rounded ring-1 ring-blue-500"
             autoFocus
-            onFocus={(e) => {
-              // Asegurar que el cursor esté al final del texto
-              setTimeout(() => {
-                e.target.setSelectionRange(e.target.value.length, e.target.value.length);
-              }, 0);
-          }}
             onBlur={() => dispatch({ type: 'STOP_EDITING' })}
         />
           ) : (
@@ -353,11 +341,6 @@ const TableRow: React.FC<TableRowProps> = ({
                 }
               }, 100);
             }}
-            onFocus={(e) => {
-              setTimeout(() => {
-                e.target.setSelectionRange(e.target.value.length, e.target.value.length);
-              }, 0);
-          }}
         />
         ) : (
           <div className="w-full px-1 py-1 text-xs truncate" title={movimiento.descripcion}>
@@ -389,11 +372,6 @@ const TableRow: React.FC<TableRowProps> = ({
                 }
               }, 100);
             }}
-            onFocus={(e) => {
-              setTimeout(() => {
-                e.target.setSelectionRange(e.target.value.length, e.target.value.length);
-              }, 0);
-          }}
             step="0.01"
             min="0"
         />
@@ -418,10 +396,18 @@ const TableRow: React.FC<TableRowProps> = ({
               ref={fechaInputRef}
             value={movimiento.fecha_movimiento}
               onChange={(value: string) => onUpdate(movimiento.id, 'fecha_movimiento', value)}
-            placeholder="dd/mm/aaaa"
-            className="w-full"
-              mode={state.editMode}
-            />
+            isEditing={isCellEditing(7)}
+            onStateChange={(isNowEditing) => {
+              if (!isNowEditing && isCellEditing(7)) {
+                dispatch({ type: 'STOP_EDITING' });
+              }
+            }}
+            onComplete={() => {
+              // Mover foco a la derecha cuando se completa dd/mm/aaaa
+              dispatch({ type: 'STOP_EDITING' });
+              dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: (state.focusedCell ? state.focusedCell.row + 1 : 1), maxCols: 12 } });
+            }}
+          />
           </div>
         ) : (
           <div data-component="smart-date-input">
@@ -429,10 +415,17 @@ const TableRow: React.FC<TableRowProps> = ({
               ref={fechaInputRef}
             value={movimiento.fecha_inicio}
               onChange={(value: string) => onUpdate(movimiento.id, 'fecha_inicio', value)}
-            placeholder="dd/mm/aaaa"
-            className="w-full"
-              mode={state.editMode}
-            />
+            isEditing={isCellEditing(7)}
+            onStateChange={(isNowEditing) => {
+              if (!isNowEditing && isCellEditing(7)) {
+                dispatch({ type: 'STOP_EDITING' });
+              }
+            }}
+            onComplete={() => {
+              dispatch({ type: 'STOP_EDITING' });
+              dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: (state.focusedCell ? state.focusedCell.row + 1 : 1), maxCols: 12 } });
+            }}
+          />
           </div>
         )}
       </td>
@@ -478,19 +471,36 @@ const TableRow: React.FC<TableRowProps> = ({
       <td 
         className={`px-1 py-2 cursor-pointer ${getFocusClassName(9)}`}
         onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 9 } })}
-        ref={(el) => registerCellRef(rowIndex, 9, el)}
+        ref={(el) => {
+          registerCellRef(rowIndex, 9, el);
+          if (el) (el as any).workingSelect = estadoSelectRef.current;
+        }}
       >
         {movimiento.modo === 'Unico' ? (
           <div className="flex flex-col space-y-1">
-            <select
+            <WorkingSelect
+              ref={estadoSelectRef}
+              id={`estado-${movimiento.id}`}
               value={movimiento.estado}
-              onChange={(e) => onUpdate(movimiento.id, 'estado', e.target.value)}
-              className="w-full px-1 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="Pendiente">Pendiente</option>
-              <option value="Completado">Completado</option>
-              <option value="Cancelado">Cancelado</option>
-            </select>
+              onChange={(value) => {
+                onUpdate(movimiento.id, 'estado', value);
+                if (value === 'Completado' && !movimiento.fecha_efectiva) {
+                  const now = new Date();
+                  const yyyy = now.getFullYear();
+                  const mm = String(now.getMonth() + 1).padStart(2, '0');
+                  const dd = String(now.getDate()).padStart(2, '0');
+                  onUpdate(movimiento.id, 'fecha_efectiva', `${yyyy}-${mm}-${dd}`);
+                }
+              }}
+              options={[
+                { value: 'Pendiente', label: 'Pendiente' },
+                { value: 'Completado', label: 'Completado' },
+                { value: 'Cancelado', label: 'Cancelado' }
+              ]}
+              placeholder="Estado"
+              className="w-full"
+              cellCoordinates={{ row: rowIndex, col: 9 }}
+            />
             {movimiento.estado === 'Completado' && (
               <input
                 type="date"
@@ -498,11 +508,13 @@ const TableRow: React.FC<TableRowProps> = ({
                 onChange={(e) => onUpdate(movimiento.id, 'fecha_efectiva', e.target.value)}
                 className="w-full px-1 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Fecha efectiva"
+                onClick={(e) => e.stopPropagation()}
               />
             )}
           </div>
         ) : (
           <WorkingSelect
+            ref={estadoSelectRef}
             id={`estado-${movimiento.id}`}
             value={movimiento.estado_regla}
             onChange={(value) => onUpdate(movimiento.id, 'estado_regla', value)}
@@ -542,14 +554,10 @@ const TableRow: React.FC<TableRowProps> = ({
       >
         <div className="flex justify-center space-x-1" onClick={(e) => e.stopPropagation()}>
           <button
-            onClick={() => onEdit(movimiento.id)}
-            className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-            title="Editar"
-          >
-            <PencilIcon />
-          </button>
-          <button
-            onClick={() => onDelete(movimiento.id)}
+            onClick={() => {
+              const ev = new CustomEvent('rr-confirm-delete', { detail: { id: movimiento.id } });
+              window.dispatchEvent(ev);
+            }}
             className="p-1 text-gray-400 hover:text-red-600 transition-colors"
             title="Eliminar"
           >
