@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback, useReducer } from 'react';
 import { supabase } from '@/lib/supabase';
 import TableRow from './TableRow';
-import IconToggle from '@/components/ui/IconToggle';
+// import IconToggle from '@/components/ui/IconToggle';
 import { DocumentIcon, PlusIcon } from '@/components/ui/ProfessionalIcons';
 import { 
   TableContext, 
   tableReducer, 
   initialState,
-  type TableState,
-  type TableAction,
-  type CellCoordinates,
   type TableContextType
 } from './TableContext';
 import './RegistrosRapidos.css';
@@ -44,6 +41,7 @@ interface Categoria {
   id: string;
   nombre: string;
   color: string;
+  tipo: 'Ingreso' | 'Egreso';
 }
 
 interface Subcategoria {
@@ -65,7 +63,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
   const [movimientos, setMovimientos] = useState<MovimientoRapido[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([]);
-  const [loading, setLoading] = useState(false);
+  // const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,16 +85,12 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
 
   // ===== FUNCIONES DE CARGA DE DATOS =====
 
-  const loadCategorias = async (tipo?: 'Ingreso' | 'Egreso') => {
+  const loadCategorias = async () => {
     try {
       let query = supabase
         .from('categorias_financieras')
         .select('id, nombre, color, tipo')
         .order('nombre');
-
-      if (tipo) {
-        query = query.eq('tipo', tipo);
-      }
 
       const { data, error } = await query;
 
@@ -154,11 +148,9 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
   };
 
   const actualizarMovimiento = useCallback((id: string, field: string, value: any) => {
-    console.log('RegistrosRapidos - actualizarMovimiento:', { id, field, value });
     setMovimientos(prev => prev.map(mov => {
       if (mov.id === id) {
         const updated = { ...mov, [field]: value };
-        console.log('RegistrosRapidos - Movimiento actualizado:', updated);
         
         // Lógica especial para cambio de modo
         if (field === 'modo') {
@@ -179,11 +171,10 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
           }
         }
 
-        // Lógica especial para cambio de tipo - recargar categorías
+        // Lógica especial para cambio de tipo - limpiar selección de categoría/subcategoría solo en esta fila
         if (field === 'tipo') {
           updated.categoriaId = '';
           updated.subcategoriaId = '';
-          loadCategorias(value);
         }
 
         // Lógica especial para cambio de categoría
@@ -205,181 +196,239 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     console.log('Editar fila:', id);
   };
 
-  // ===== MANEJADOR GLOBAL DE EVENTOS KEYDOWN =====
+  // ===== ORQUESTADOR ÚNICO DE EVENTOS KEYDOWN =====
 
   const handleTableKeyDown = useCallback((event: KeyboardEvent) => {
-    const { key, shiftKey, metaKey, ctrlKey, altKey, target } = event;
-    const { focusedCell, isEditing, activeDropdown, highlightedDropdownOptionIndex } = state;
+    const { key, shiftKey, metaKey, ctrlKey } = event;
+    const { focusedCell, isEditing, activeDropdown } = state;
 
-    console.log('RegistrosRapidos - handleTableKeyDown:', { 
-      key, 
-      focusedCell, 
-      isEditing, 
-      activeDropdown,
-      target: target?.tagName,
-      activeElement: document.activeElement?.tagName 
-    });
+    if (metaKey || ctrlKey) return; // Permitir copy/paste etc.
 
-    // CRÍTICO #005: Ignorar teclas modificadoras solas
-    if (metaKey || ctrlKey || altKey) {
-      // Permitir combinaciones como Ctrl+C, Ctrl+V, etc. si target es un input
-      if ((target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && (ctrlKey || metaKey)) {
-        return; 
+    const isTextInputFocused = () => {
+      if (!focusedCell) return false;
+      const textInputCols = [4, 5, 6]; // Solo Proveedor, Descripción, Monto (sin fecha)
+      return textInputCols.includes(focusedCell.col);
+    };
+    
+    const isDateInputFocused = () => {
+      if (!focusedCell) return false;
+      return focusedCell.col === 7; // Solo fecha
+    };
+
+    // --- PRIORIDAD 1: Un dropdown está activo ---
+    if (activeDropdown) {
+      // Manejar teclas globalmente para evitar que la página haga scroll
+      const optionsCount = 9999; // real se gestiona en reducer por límites
+      if (key === 'ArrowUp' || key === 'ArrowDown') {
+        event.preventDefault();
+        event.stopPropagation();
+        dispatch({ type: 'HIGHLIGHT_DROPDOWN_OPTION', payload: { direction: key === 'ArrowUp' ? 'up' : 'down', optionsCount } });
+      } else if (key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        // Intentar seleccionar vía ref del WorkingSelect en la celda activa
+        const { row, col } = activeDropdown;
+        const cellEl = cellRefs.current.get(getCellKey(row, col));
+        const api = cellEl ? (cellEl as any).workingSelect : null;
+        if (api && api.selectHighlighted) {
+          api.selectHighlighted();
+        } else {
+          // Fallback: Selección vía reducer
+          dispatch({ type: 'SELECT_DROPDOWN_OPTION' });
+        }
+      } else if (key === 'Escape' || key === 'Tab') {
+        event.preventDefault();
+        event.stopPropagation();
+        dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
       }
-      // Si no es un input o no es una combinación específica, ignorar
       return;
     }
 
-    // CRÍTICO: Si no hay celda enfocada y no estamos en un dropdown, no hacemos nada (evita edición fantasma)
-    if (!focusedCell && !activeDropdown) return; 
-
-    // Obtener la referencia al elemento DOM activo (input o botón de select)
-    const activeElementRef = focusedCell ? cellRefs.current.get(`${focusedCell.row}-${focusedCell.col}`) : null;
-    const activeInput = activeElementRef instanceof HTMLInputElement ? activeElementRef : null;
-
-    // Bloquear el comportamiento nativo del navegador para las teclas que manejamos
-    const keysToPreventDefault = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Escape', 'Tab'];
-    if (keysToPreventDefault.includes(key) || (key.length === 1 && focusedCell && !isEditing && !activeDropdown)) {
-      event.preventDefault();
-    }
-
-    // --- Lógica Principal del Reducer Dispatch ---
-    // ORDEN DE PRIORIDAD: Dropdown Abierto > Modo Edición > Celda Seleccionada
-    if (activeDropdown) {
-      // ¡Este bloque es el ÚNICO que debe manejar la navegación dentro de un dropdown abierto!
-      console.log('RegistrosRapidos - Manejando dropdown activo:', { activeDropdown, key });
-      
-      // Obtener la referencia al WorkingSelect activo
-      const dropdownRef = cellRefs.current.get(`${activeDropdown.row}-${activeDropdown.col}`);
-      if (dropdownRef) {
-        // Buscar el WorkingSelect dentro de la celda
-        const workingSelectElement = dropdownRef.querySelector('[data-dropdown]')?.parentElement;
-        if (workingSelectElement && (workingSelectElement as any).handleDropdownKeyDown) {
-          (workingSelectElement as any).handleDropdownKeyDown(event, { state, dispatch });
-          return;
+    // --- PRIORIDAD 2: Una celda de texto está en modo edición ---
+    if (isEditing && isTextInputFocused()) {
+      if (key === 'Escape') {
+        event.preventDefault();
+        dispatch({ type: 'STOP_EDITING' }); // Cancelar cambios se maneja en el reducer/componente
+      } else if (key === 'Enter' || key === 'Tab') {
+        event.preventDefault();
+        dispatch({ type: 'STOP_EDITING' });
+        if (key === 'Enter' || (key === 'Tab' && !shiftKey)) {
+          dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: movimientos.length, maxCols: 12 } });
+        } else if (key === 'Tab' && shiftKey) {
+          dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'left', maxRows: movimientos.length, maxCols: 12 } });
         }
       }
-      
-      // Fallback: manejar directamente
-      if (key === 'ArrowUp' || key === 'ArrowDown') {
-        dispatch({ type: 'HIGHLIGHT_DROPDOWN_OPTION', payload: { direction: key.replace('Arrow', '').toLowerCase() as 'up' | 'down' } });
-      } else if (key === 'Enter') {
-        dispatch({ type: 'SELECT_DROPDOWN_OPTION', payload: { value: null } });
-      } else if (key === 'Escape') {
-        dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
-      }
-    } else if (isEditing && activeInput) { // Modo Edición
-      // ¡Este bloque maneja Enter para guardar, Escape para cancelar en inputs!
-      if (key === 'Enter') {
-        dispatch({ type: 'STOP_EDITING', payload: { commit: true } });
-      } else if (key === 'Escape') {
-        dispatch({ type: 'STOP_EDITING', payload: { commit: false } });
-      }
-      // Para el resto de teclas (alfanuméricas), dejar que el input nativo las maneje.
-    } else if (focusedCell) { // Celda Seleccionada (No Editando, No Dropdown Abierto)
-      // ¡Este bloque maneja las transiciones de foco y la entrada en modo edición!
+      // Dejar que el input maneje las teclas alfanuméricas
+      return;
+    }
+
+    // Nota: no retornamos aquí para fecha; las flechas deben poder salir de edición y navegar
+    
+    // --- PRIORIDAD 3: Una celda está seleccionada (navegación) ---
+    if (focusedCell) {
+        // Navegación con flechas
       if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
-        // Ajustar la navegación hacia abajo para no salirse de los límites
-        let direction = key.replace('Arrow', '').toLowerCase() as 'up' | 'down' | 'left' | 'right';
-        if (direction === 'down' && focusedCell.row >= movimientos.length - 1) {
-          // Si estamos en la última fila, no hacer nada
+          console.log('RegistrosRapidos - Flecha presionada:', { key, isEditing: state.isEditing, isTextInputFocused: isTextInputFocused(), isDateInputFocused: isDateInputFocused() });
+          const direction = key.replace('Arrow', '').toLowerCase() as any;
+          // Si estamos editando (text o fecha): guardar y salir de edición + mover (estilo Excel)
+          if (state.isEditing && (isTextInputFocused() || isDateInputFocused())) {
+            event.preventDefault();
+            // Guardado implícito: ya se sincroniza onChange del input controlado
+            dispatch({ type: 'STOP_EDITING' });
+            dispatch({ type: 'MOVE_FOCUS', payload: { direction, maxRows: movimientos.length, maxCols: 12 } });
           return;
         }
-        dispatch({ type: 'MOVE_FOCUS', payload: { direction } });
+          // Si no estamos editando, navegar normalmente
+          console.log('RegistrosRapidos - Navegando entre celdas');
+          event.preventDefault();
+          dispatch({ type: 'MOVE_FOCUS', payload: { direction, maxRows: movimientos.length, maxCols: 12 } });
       } else if (key === 'Enter') {
-        // Decide si START_EDITING (para inputs) o TOGGLE_DROPDOWN (para selects)
-        if (focusedCell.col === 2 || focusedCell.col === 3 || focusedCell.col === 9) { // Columnas de WorkingSelect
-          // COMPORTAMIENTO EXCEL: Enter en dropdown debe abrirlo
-          dispatch({ type: 'TOGGLE_DROPDOWN', payload: focusedCell });
-        } else if (focusedCell.col === 0 || focusedCell.col === 1) { // Columnas de IconToggle
-          handleToggleIconToggle(focusedCell);
-        } else if (focusedCell.col === 10) { // Columna Fiscal (Checkbox)
-          handleToggleCheckbox(focusedCell);
-        } else if (focusedCell.col === 4 || focusedCell.col === 5 || focusedCell.col === 6) { // Columnas de texto/monto
-          dispatch({ type: 'START_EDITING' });
+        console.log('RegistrosRapidos - Enter presionado:', { col: focusedCell.col, isEditing });
+        // Lógica para decidir si editar o abrir dropdown
+        const { col } = focusedCell;
+        const dropdownCols = [2, 3, 8, 9]; // Categoría, Subcat, Detalles Rec., Estado
+        const toggleCols = [0, 1]; // Modo, Tipo
+        const textInputCols = [4, 5, 6]; // Proveedor, Descripción, Monto
+        
+        if (textInputCols.includes(col)) {
+          // Para inputs de texto: si no estaba editando, empezar a editar; si estaba, confirmar y moverse a la derecha
+          if (!state.isEditing) {
+            console.log('RegistrosRapidos - Enter en input de texto, iniciando edición append');
+            dispatch({ type: 'START_APPEND_EDITING' });
+          } else {
+            event.preventDefault();
+            event.stopPropagation();
+            dispatch({ type: 'STOP_EDITING' });
+            dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: movimientos.length, maxCols: 12 } });
+          }
+        } else if (col === 7) {
+          // Para fecha, usar modo append (Enter = editar existente)
+          console.log('RegistrosRapidos - Enter en fecha, iniciando edición append');
+          event.preventDefault();
+          event.stopPropagation();
+          dispatch({ type: 'START_APPEND_EDITING' });
+        } else if (dropdownCols.includes(col)) {
+          console.log('RegistrosRapidos - Enter en dropdown, abriendo');
+          event.preventDefault();
+          event.stopPropagation();
+          // Abrir exactamente el dropdown de la celda enfocada
+          dispatch({ type: 'TOGGLE_DROPDOWN', payload: { row: focusedCell.row, col } });
+          // Caso especial: col 8 (Detalles Rec.) usa popover propio
+          if (col === 8) {
+            setTimeout(() => {
+              const cellEl = cellRefs.current.get(getCellKey(focusedCell.row, 8));
+              const pop = cellEl ? (cellEl.querySelector('[data-recurrence]') as any) : null;
+              // Si el componente expone ref en el DOM
+              if (pop && pop.open) pop.open();
+            }, 0);
+          }
+        } else if (toggleCols.includes(col)) {
+          // Enter en celdas toggle: alternar valor
+          const mov = movimientos[focusedCell.row];
+          if (mov) {
+            if (col === 0) {
+              const nuevo = mov.modo === 'Unico' ? 'Recurrente' : 'Unico';
+              console.log('RegistrosRapidos - Enter toggle MODO:', { de: mov.modo, a: nuevo });
+              actualizarMovimiento(mov.id, 'modo', nuevo);
+            } else if (col === 1) {
+              const nuevo = mov.tipo === 'Ingreso' ? 'Egreso' : 'Ingreso';
+              console.log('RegistrosRapidos - Enter toggle TIPO:', { de: mov.tipo, a: nuevo });
+              actualizarMovimiento(mov.id, 'tipo', nuevo);
+            }
+          }
         }
-      } else if (key.length === 1 && !shiftKey) { // CRÍTICO #007: Type-to-Edit
-        // Si es un input editable, iniciar edición con la tecla
-        if (focusedCell.col === 4 || focusedCell.col === 5 || focusedCell.col === 6) {
-          dispatch({ type: 'SET_EDITING_VALUE', payload: { cell: focusedCell, value: key } });
-          dispatch({ type: 'START_EDITING' });
+        // Añadir lógica para Toggles y Checkbox
+      } else if (key.length === 1 && !shiftKey) { // Type-to-edit
+        console.log('RegistrosRapidos - Type-to-edit detectado:', { key, col: focusedCell.col, isTextInputFocused: isTextInputFocused(), isDateInputFocused: isDateInputFocused() });
+          const movimiento = movimientos[focusedCell.row];
+          if (movimiento) {
+          // Manejar inputs de texto (columnas 4, 5, 6)
+          if (isTextInputFocused()) {
+            // Si ya estamos editando, no hacer nada - dejar que el input maneje la tecla
+            if (state.isEditing) {
+              return; // Dejar que el input nativo maneje la tecla
+            }
+            
+            let fieldName = '';
+            if (focusedCell.col === 4) fieldName = 'proveedor_cliente';
+            else if (focusedCell.col === 5) fieldName = 'descripcion';
+            else if (focusedCell.col === 6) fieldName = 'monto';
+            
+            if (fieldName) {
+              // Detectar si el campo está vacío: si está vacío, no usar overwrite para no seleccionar en azul
+              const currentValue = fieldName === 'proveedor_cliente'
+                ? (movimiento.proveedor_cliente || '')
+                : fieldName === 'descripcion'
+                ? (movimiento.descripcion || '')
+                : fieldName === 'monto'
+                ? String(movimiento.monto ?? '')
+                : '';
+
+              if (currentValue.trim().length === 0 && fieldName !== 'monto') {
+                // Campo vacío (texto): iniciar en append y escribir primera letra sin seleccionar
+                dispatch({ type: 'START_APPEND_EDITING' });
+                setTimeout(() => {
+                  actualizarMovimiento(movimiento.id, fieldName, key);
+                }, 40);
+              } else {
+                // Campo con contenido: NO usar overwrite para evitar selección azul; forzamos valor = primera letra y modo append
+                dispatch({ type: 'START_APPEND_EDITING' });
+                setTimeout(() => {
+                  actualizarMovimiento(movimiento.id, fieldName, key);
+                  const cellEl = cellRefs.current.get(getCellKey(focusedCell.row, focusedCell.col));
+                  const input = cellEl ? (cellEl.querySelector('input') as HTMLInputElement | null) : null;
+                  if (input) {
+                    input.focus();
+                    const len = input.value.length;
+                    try { input.setSelectionRange(len, len); } catch {}
+                  }
+                }, 30);
+              }
+            }
+          }
+          // Manejar fecha (columna 7)
+          else if (focusedCell.col === 7) {
+            console.log('RegistrosRapidos - Type-to-edit en fecha:', { key, row: focusedCell.row, isEditing: state.isEditing });
+
+            // Capturar siempre el dígito y delegarlo al SmartDateInput para evitar pérdidas
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Si no estamos en edición aún, iniciar en overwrite
+            if (!state.isEditing) {
+              dispatch({ type: 'START_OVERWRITE_EDITING' });
+            }
+
+            // Enfocar y pasar la tecla al SmartDateInput
+            setTimeout(() => {
+              const cellElement = document.querySelector(`[data-row="${focusedCell.row}"][data-col="7"]`);
+              console.log('RegistrosRapidos - Buscando celda de fecha:', { cellElement: !!cellElement });
+              if (cellElement && (cellElement as any).smartDateInput) {
+                const smartDateInput = (cellElement as any).smartDateInput;
+                console.log('RegistrosRapidos - SmartDateInput encontrado:', { smartDateInput: !!smartDateInput });
+                if (smartDateInput.focus) smartDateInput.focus();
+                if (smartDateInput.handleDigitInput) smartDateInput.handleDigitInput(key);
+              } else {
+                console.log('RegistrosRapidos - SmartDateInput no encontrado en la celda');
+              }
+            }, 20);
+          }
         }
       }
     }
-  }, [state, movimientos.length]);
+  }, [state, movimientos, actualizarMovimiento]);
 
-  // ===== MANEJADORES DE ACCIONES ESPECÍFICAS =====
-
-  const handleToggleIconToggle = useCallback((cell: CellCoordinates) => {
-    const movimiento = movimientos[cell.row];
-    if (!movimiento) return;
-
-    if (cell.col === 0) { // MODO toggle
-      const currentValue = movimiento.modo;
-      const newValue = currentValue === 'Unico' ? 'Recurrente' : 'Unico';
-      actualizarMovimiento(movimiento.id, 'modo', newValue);
-    } else if (cell.col === 1) { // TIPO toggle
-      const currentValue = movimiento.tipo;
-      const newValue = currentValue === 'Ingreso' ? 'Egreso' : 'Ingreso';
-      actualizarMovimiento(movimiento.id, 'tipo', newValue);
-    }
-  }, [movimientos, actualizarMovimiento]);
-
-  const handleToggleCheckbox = useCallback((cell: CellCoordinates) => {
-    const movimiento = movimientos[cell.row];
-    if (!movimiento) return;
-
-    if (cell.col === 10) { // FISCAL checkbox
-      const newValue = !movimiento.es_fiscal;
-      actualizarMovimiento(movimiento.id, 'es_fiscal', newValue);
-    }
-  }, [movimientos, actualizarMovimiento]);
 
   // ===== EFECTOS SECUNDARIOS =====
 
-  // Efecto para manejar cambios en focusedCell
-  useEffect(() => {
-    if (state.focusedCell && state.isEditing) {
-      const { row, col } = state.focusedCell;
-      const cellKey = getCellKey(row, col);
-      const element = cellRefs.current.get(cellKey);
-      
-      if (element) {
-        const input = element.querySelector('input');
-        if (input) {
-          setTimeout(() => {
-            input.focus();
-            if (state.editingValue) {
-              input.value = state.editingValue;
-              input.setSelectionRange(1, 1);
-            }
-          }, 0);
-        }
-      }
-    }
-  }, [state.focusedCell, state.isEditing, state.editingValue]);
-
-  // Efecto para scroll cuando cambia focusedCell
-  useEffect(() => {
-    if (state.focusedCell) {
-      const { row, col } = state.focusedCell;
-      const cellKey = getCellKey(row, col);
-      const element = cellRefs.current.get(cellKey);
-      
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-      }
-    }
-  }, [state.focusedCell]);
-
-  // Efecto para añadir/remover event listeners
+  // Efecto para añadir/remover event listeners (captura: true para interceptar teclas antes del input)
   useEffect(() => {
     const handleKeyDownWrapper = (event: KeyboardEvent) => handleTableKeyDown(event);
     
-    document.addEventListener('keydown', handleKeyDownWrapper);
+    document.addEventListener('keydown', handleKeyDownWrapper, true);
     
     return () => {
-      document.removeEventListener('keydown', handleKeyDownWrapper);
+      document.removeEventListener('keydown', handleKeyDownWrapper, true);
     };
   }, [handleTableKeyDown]);
 
@@ -390,9 +439,10 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     }
   }, [movimientos.length, state.focusedCell]);
 
+
   // Cargar categorías y subcategorías
   useEffect(() => {
-    loadCategorias('Egreso');
+    loadCategorias();
     loadSubcategorias();
   }, []);
 
@@ -521,9 +571,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
   // ===== CONTEXT VALUE =====
   const contextValue: TableContextType = {
     state,
-    dispatch,
-    cellRefs,
-    tableRef
+    dispatch
   };
 
   // ===== RENDER =====

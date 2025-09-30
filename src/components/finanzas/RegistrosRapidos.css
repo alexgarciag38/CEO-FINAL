@@ -313,6 +313,7 @@ body {
   border: 2px solid #3b82f6 !important;
   border-radius: 4px !important;
   position: relative !important;
+  cursor: pointer !important;
 }
 
 /* Estilo para celdas seleccionadas pero NO en modo edición (solo foco visual) */

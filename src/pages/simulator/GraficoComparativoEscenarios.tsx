@@ -45,3 +45,6 @@ const GraficoComparativoEscenarios: React.FC<Props> = ({ netDes, netReal, netOpt
 };
 
 export default GraficoComparativoEscenarios;
+
+
+

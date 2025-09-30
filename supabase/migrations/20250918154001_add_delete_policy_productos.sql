@@ -7,3 +7,6 @@ BEGIN
     CREATE POLICY productos_delete_own ON public.productos FOR DELETE USING (auth.uid() = user_id);
   END IF;
 END$$;
+
+
+

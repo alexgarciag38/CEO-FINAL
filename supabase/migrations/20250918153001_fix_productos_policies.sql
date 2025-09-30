@@ -36,3 +36,6 @@ END$$;
 -- Índices idempotentes
 create index if not exists productos_nombre_idx on public.productos using gin (to_tsvector('spanish', nombre));
 create unique index if not exists productos_user_sku_key on public.productos (user_id, sku);
+
+
+

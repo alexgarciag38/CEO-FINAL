@@ -26,3 +26,6 @@ exception when duplicate_object then null; end $$;
 create index if not exists simulations_user_id_created_at_idx on public.simulations(user_id, created_at desc);
 
 
+
+
+

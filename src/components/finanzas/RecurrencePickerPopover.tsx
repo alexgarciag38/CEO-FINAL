@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { CogIcon } from '@/components/ui/ProfessionalIcons';
 
 interface RecurrenceConfig {
@@ -17,13 +17,23 @@ interface RecurrencePickerPopoverProps {
   className?: string;
 }
 
-export const RecurrencePickerPopover: React.FC<RecurrencePickerPopoverProps> = ({
-  value,
-  onChange,
-  className = ''
-}) => {
+export interface RecurrencePickerPopoverRef {
+  open: () => void;
+  close: () => void;
+  isOpen: () => boolean;
+}
+
+export const RecurrencePickerPopover = forwardRef(({ value, onChange, className = '' }: RecurrencePickerPopoverProps, ref: any) => {
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Exponer métodos imperativos
+  useImperativeHandle(ref, () => ({
+    open: () => setIsOpen(true),
+    close: () => setIsOpen(false),
+    isOpen: () => isOpen
+  }), [isOpen]);
 
   // Cerrar popover al hacer clic fuera
   useEffect(() => {
@@ -104,8 +114,48 @@ export const RecurrencePickerPopover: React.FC<RecurrencePickerPopoverProps> = (
     { value: 'domingo', label: 'Domingo' }
   ];
 
+  // Navegación por teclado dentro del popover
+  useEffect(() => {
+    if (!isOpen) return;
+    const el = popoverRef.current;
+    if (!el) return;
+    const focusables = () => Array.from(el.querySelectorAll<HTMLElement>('select, input, button'));
+    // Enfocar el primer control
+    const fs = focusables();
+    if (fs.length > 0) setTimeout(() => fs[0].focus(), 0);
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const keys = ['ArrowDown', 'ArrowUp', 'Enter', 'Escape'];
+      if (!keys.includes(e.key)) return;
+      const list = focusables();
+      const active = document.activeElement as HTMLElement | null;
+      const idx = active ? list.indexOf(active) : -1;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsOpen(false);
+        return;
+      }
+      if (e.key === 'Enter') {
+        // Aplicar y cerrar (los cambios ya se reflejan vía onChange de cada control)
+        e.preventDefault();
+        setIsOpen(false);
+        return;
+      }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (list.length === 0) return;
+        let next = idx;
+        if (e.key === 'ArrowDown') next = (idx + 1 + list.length) % list.length;
+        else next = (idx - 1 + list.length) % list.length;
+        list[next]?.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [isOpen]);
+
   return (
-    <div className={`relative ${className}`} ref={popoverRef}>
+    <div className={`relative ${className}`} ref={containerRef} data-recurrence>
       {/* Campo de resumen */}
       <div 
         className="
@@ -139,7 +189,7 @@ export const RecurrencePickerPopover: React.FC<RecurrencePickerPopoverProps> = (
 
       {/* Popover */}
       {isOpen && (
-        <div className="
+        <div ref={popoverRef} className="
           absolute top-full left-0 mt-1 w-80 bg-white border border-gray-300
           rounded-lg shadow-lg z-50 p-4
         ">
@@ -278,6 +328,6 @@ export const RecurrencePickerPopover: React.FC<RecurrencePickerPopoverProps> = (
       )}
     </div>
   );
-};
+});
 
 export default RecurrencePickerPopover;

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
+import { useTableContext } from '../finanzas/TableContext';
 
 // Icono SVG inline para evitar dependencias
 const ChevronDownIcon = ({ className }: { className?: string }) => (
@@ -31,6 +32,7 @@ export interface WorkingSelectRef {
   handleDropdownKeyDown: (event: React.KeyboardEvent, context: any) => void;
   openDropdown: () => void;
   closeDropdown: () => void;
+  selectHighlighted: () => void;
 }
 
 const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
@@ -43,11 +45,24 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
   id,
   cellCoordinates
 }, ref) => {
-  const [open, setOpen] = useState(false);
+  // CRÍTICO: Usar el contexto de la tabla para sincronizar el estado
+  const { state } = useTableContext();
+  
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  
+  // CRÍTICO: Determinar si este dropdown está activo basado en el contexto global
+  const isActiveDropdown = cellCoordinates && state.activeDropdown &&
+    state.activeDropdown.row === cellCoordinates.row &&
+    state.activeDropdown.col === cellCoordinates.col;
+  
+  const open = isActiveDropdown;
+
+  // CRÍTICO: Obtener dispatch del contexto para usar en useImperativeHandle
+  const { dispatch } = useTableContext();
 
   // Exponer métodos al componente padre
   useImperativeHandle(ref, () => ({
@@ -69,34 +84,35 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
         case 'ArrowDown':
           event.preventDefault();
           event.stopPropagation();
-          const nextIndex = highlightedIndex < options.length - 1 ? highlightedIndex + 1 : 0;
-          setHighlightedIndex(nextIndex);
-          dispatch({ type: 'SET_ACTIVE_DROPDOWN_HIGHLIGHT', payload: nextIndex });
+          dispatch({ type: 'HIGHLIGHT_DROPDOWN_OPTION', payload: { direction: 'down', optionsCount: options.length } });
           break;
           
         case 'ArrowUp':
           event.preventDefault();
           event.stopPropagation();
-          const prevIndex = highlightedIndex > 0 ? highlightedIndex - 1 : options.length - 1;
-          setHighlightedIndex(prevIndex);
-          dispatch({ type: 'SET_ACTIVE_DROPDOWN_HIGHLIGHT', payload: prevIndex });
+          dispatch({ type: 'HIGHLIGHT_DROPDOWN_OPTION', payload: { direction: 'up', optionsCount: options.length } });
           break;
           
         case 'Enter':
           event.preventDefault();
           event.stopPropagation();
-          if (highlightedIndex >= 0 && highlightedIndex < options.length) {
-            const option = options[highlightedIndex];
+          console.log('WorkingSelect - Enter pressed in dropdown:', { 
+            highlightedIndex: state.highlightedDropdownOptionIndex, 
+            optionsLength: options.length 
+          });
+          if (state.highlightedDropdownOptionIndex >= 0 && state.highlightedDropdownOptionIndex < options.length) {
+            const option = options[state.highlightedDropdownOptionIndex];
+            console.log('WorkingSelect - Selecting option:', option);
             if (!option.disabled) {
               handleOptionClick(option);
             }
           }
+          dispatch({ type: 'SELECT_DROPDOWN_OPTION' });
           break;
           
         case 'Escape':
           event.preventDefault();
           event.stopPropagation();
-          closeDropdown();
           dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
           break;
       }
@@ -104,16 +120,24 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
     
     openDropdown: () => {
       console.log('WorkingSelect - openDropdown llamado programáticamente');
-      if (!disabled) {
-        setOpen(true);
-        const startIndex = value ? options.findIndex(opt => opt.value === value) : 0;
-        setHighlightedIndex(startIndex);
+      if (!disabled && cellCoordinates) {
+        // CRÍTICO: Usar el contexto para abrir el dropdown
+        dispatch({ type: 'TOGGLE_DROPDOWN', payload: cellCoordinates });
       }
     },
     
     closeDropdown: () => {
-      setOpen(false);
-      setHighlightedIndex(-1);
+      // CRÍTICO: Usar el contexto para cerrar el dropdown
+      dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
+    },
+    selectHighlighted: () => {
+      // Seleccionar la opción resaltada actual
+      if (!open) return;
+      const idx = state.highlightedDropdownOptionIndex;
+      if (idx >= 0 && idx < options.length) {
+        const option = options[idx];
+        if (!option.disabled) handleOptionClick(option);
+      }
     }
   }));
 
@@ -137,10 +161,22 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
   // Sincronizar highlightedIndex con el estado global
   useEffect(() => {
     if (open && cellCoordinates) {
-      // El índice resaltado se maneja desde el contexto global
-      // No necesitamos hacer nada aquí
+      // Sincronizar el índice resaltado con el estado global
+      if (state.highlightedDropdownOptionIndex !== highlightedIndex) {
+        setHighlightedIndex(state.highlightedDropdownOptionIndex);
+      }
+    } else if (!open) {
+      setHighlightedIndex(-1);
     }
-  }, [open, cellCoordinates]);
+  }, [open, cellCoordinates, state.highlightedDropdownOptionIndex]);
+
+  // CRÍTICO: Sincronizar el estado del dropdown con el contexto global
+  useEffect(() => {
+    if (cellCoordinates && typeof window !== 'undefined') {
+      // Verificar si este dropdown debería estar abierto según el contexto global
+      // Esto se manejará desde el contexto padre
+    }
+  }, [cellCoordinates]);
 
   const selected = options.find(option => option.value === value) || null;
   
@@ -166,14 +202,15 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
   const handleOptionClick = (option: Option) => {
     if (option.disabled) return;
     
-    console.log('WorkingSelect - Option clicked:', { option, currentValue: value });
+    console.log('WorkingSelect - Option clicked:', { option, currentValue: value, cellCoordinates });
     
+    // CRÍTICO: Actualizar el valor usando onChange
     if (typeof onChange === 'function') {
       onChange(option.value);
     }
     
-    setOpen(false);
-    setHighlightedIndex(-1);
+    // CRÍTICO: Cerrar el dropdown usando el contexto global
+    dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
     
     // Asegurar que el botón mantenga el foco después de seleccionar
     setTimeout(() => {
@@ -181,17 +218,8 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
     }, 0);
   };
 
-  const openDropdown = () => {
-    if (!disabled) {
-      setOpen(true);
-      const startIndex = value ? options.findIndex(opt => opt.value === value) : 0;
-      setHighlightedIndex(startIndex);
-    }
-  };
-
   const closeDropdown = () => {
-    setOpen(false);
-    setHighlightedIndex(-1);
+    dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
   };
 
   // Navegación por teclado - SIMPLIFICADA (solo para clics directos)
@@ -206,43 +234,51 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
     const relevantKeys = ['Enter', ' ', 'ArrowDown', 'ArrowUp', 'Escape'];
     if (!relevantKeys.includes(event.key)) return;
 
-    console.log('WorkingSelect - handleKeyDown:', { key: event.key, open, highlightedIndex, disabled, isFocused });
+    console.log('WorkingSelect - handleKeyDown (LOCAL):', { key: event.key, open, highlightedIndex, disabled, isFocused });
 
     switch (event.key) {
       case 'Enter':
-      case ' ':
         event.preventDefault();
         event.stopPropagation();
-        if (open && highlightedIndex >= 0 && highlightedIndex < options.length) {
-          const option = options[highlightedIndex];
-          if (!option.disabled) {
-            handleOptionClick(option);
+        if (open) {
+          console.log('WorkingSelect - Enter/Space pressed locally - DROPDOWN OPEN');
+          if (state.highlightedDropdownOptionIndex >= 0 && state.highlightedDropdownOptionIndex < options.length) {
+            const option = options[state.highlightedDropdownOptionIndex];
+            console.log('WorkingSelect - Selecting option from local handler:', option);
+            if (!option.disabled) {
+              handleOptionClick(option);
+            }
           }
-        } else if (!open) {
-          openDropdown();
+        } else {
+          // Abrir si está cerrado
+          dispatch({ type: 'TOGGLE_DROPDOWN', payload: cellCoordinates! });
         }
+        break;
+      case ' ':
+        // Evitar que Space haga scroll de la página
+        event.preventDefault();
+        event.stopPropagation();
+        if (!open) dispatch({ type: 'TOGGLE_DROPDOWN', payload: cellCoordinates! });
         break;
       
       case 'ArrowDown':
-        event.preventDefault();
-        event.stopPropagation();
-        if (!open) {
-          openDropdown();
-        } else {
-          const newIndex = highlightedIndex < options.length - 1 ? highlightedIndex + 1 : 0;
-          setHighlightedIndex(newIndex);
+        // CRÍTICO: Solo manejar flechas si el dropdown está abierto
+        if (open) {
+          event.preventDefault();
+          event.stopPropagation();
+          dispatch({ type: 'HIGHLIGHT_DROPDOWN_OPTION', payload: { direction: 'down', optionsCount: options.length } });
         }
+        // Si no está abierto, permitir que el manejador global maneje la flecha
         break;
       
       case 'ArrowUp':
-        event.preventDefault();
-        event.stopPropagation();
-        if (!open) {
-          openDropdown();
-        } else {
-          const newIndex = highlightedIndex > 0 ? highlightedIndex - 1 : options.length - 1;
-          setHighlightedIndex(newIndex);
+        // CRÍTICO: Solo manejar flechas si el dropdown está abierto
+        if (open) {
+          event.preventDefault();
+          event.stopPropagation();
+          dispatch({ type: 'HIGHLIGHT_DROPDOWN_OPTION', payload: { direction: 'up', optionsCount: options.length } });
         }
+        // Si no está abierto, permitir que el manejador global maneje la flecha
         break;
       
       case 'Escape':
@@ -269,22 +305,36 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
     }
   }, [open]);
 
+  // Asegurar que la opción resaltada quede visible en el menú
+  useEffect(() => {
+    if (!open || !menuRef.current) return;
+    const container = menuRef.current;
+    const items = container.querySelectorAll('[role="option"]');
+    const idx = highlightedIndex;
+    if (idx >= 0 && idx < items.length) {
+      const el = items[idx] as HTMLElement;
+      el.scrollIntoView({ block: 'nearest' });
+    }
+  }, [open, highlightedIndex]);
+
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
+    <div 
+      ref={containerRef} 
+      className={`relative ${className}`}
+      style={{ pointerEvents: 'none' }} // CRÍTICO: Deshabilitar pointer events en el contenedor
+    >
       {/* Botón principal */}
       <button
+        style={{ pointerEvents: 'auto' }} // CRÍTICO: Habilitar pointer events solo en el botón
         ref={buttonRef}
         type="button"
         id={id}
         disabled={disabled}
         onClick={(e) => {
           console.log('WorkingSelect - Button clicked (COMPORTAMIENTO EXCEL - SOLO SELECCIÓN)');
-          e.preventDefault();
-          e.stopPropagation();
           
-          // COMPORTAMIENTO EXCEL: Un clic NO debe abrir el dropdown
-          // Solo debe seleccionar la celda. El dropdown se abre con doble clic o Enter
-          // NO abrir el dropdown automáticamente
+          // CRÍTICO: NO prevenir ni detener la propagación para permitir que la celda maneje el clic
+          // El botón solo debe mantener el foco visual, la celda manejará la lógica
           
           // Solo asegurar que el botón mantenga el foco para la selección visual
           setTimeout(() => {
@@ -326,8 +376,16 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
         <div
           data-dropdown
           className="bg-white border border-gray-200 rounded-sm shadow-lg overflow-y-auto"
-          style={menuStyle}
+          style={{ ...menuStyle, pointerEvents: 'auto' }} // CRÍTICO: Habilitar pointer events en el dropdown
           role="listbox"
+          ref={menuRef}
+          onWheel={(e) => {
+            // Evitar que el scroll del dropdown "mueva" la página y forzar scroll local
+            e.preventDefault();
+            e.stopPropagation();
+            const el = e.currentTarget as HTMLElement;
+            el.scrollTop += e.deltaY;
+          }}
         >
           {options.length === 0 ? (
             <div className="px-3 py-2 text-xs text-gray-500">
@@ -363,8 +421,10 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
                           : 'white',
                     borderColor: optionColor ? optionColor : 'transparent'
                   }}
-                  onClick={() => {
+                  onClick={(e) => {
                     console.log('WorkingSelect - Option div clicked:', option);
+                    e.preventDefault();
+                    e.stopPropagation();
                     handleOptionClick(option);
                   }}
                   role="option"
