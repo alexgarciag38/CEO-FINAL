@@ -92,15 +92,25 @@ export const HistorialMovimientos: React.FC = () => {
     setError(null);
     try {
       let query = supabase
-        .from('financial_payments')
+        .from('movimientos_historial')
         .select(`
-          *,
+          id,
+          tipo,
+          descripcion,
+          monto,
+          fecha_efectiva,
+          forma_pago,
+          fiscal,
+          notas,
+          origen,
+          regla_id,
+          n_orden_ocurrencia,
+          total_planeadas,
           categorias_financieras(nombre, color),
           subcategorias_financieras(nombre, color),
           proveedores(nombre)
         `, { count: 'exact' })
-        .eq('pagado', true)
-        .order('fecha_efectiva_pago', { ascending: false });
+        .order('fecha_efectiva', { ascending: false });
 
       // Aplicar filtros
       if (filtroTipo) query = query.eq('tipo', filtroTipo);
@@ -119,8 +129,12 @@ export const HistorialMovimientos: React.FC = () => {
       const { data, error, count } = await query;
 
       if (error) throw error;
-      
-      setMovimientos(data || []);
+      // Mapear fecha_efectiva -> fecha_efectiva_pago para mantener UI intacta
+      const mapped = (data || []).map((m: any) => ({
+        ...m,
+        fecha_efectiva_pago: m.fecha_efectiva
+      }));
+      setMovimientos(mapped);
       setTotalRegistros(count || 0);
       setTotalPaginas(Math.ceil((count || 0) / registrosPorPagina));
 
@@ -146,15 +160,21 @@ export const HistorialMovimientos: React.FC = () => {
     try {
       // Obtener todos los datos sin paginación para la exportación
       let query = supabase
-        .from('financial_payments')
+        .from('movimientos_historial')
         .select(`
-          *,
+          id,
+          tipo,
+          descripcion,
+          monto,
+          fecha_efectiva,
           categorias_financieras(nombre),
           subcategorias_financieras(nombre),
-          proveedores(nombre)
+          proveedores(nombre),
+          forma_pago,
+          fiscal,
+          notas
         `)
-        .eq('pagado', true)
-        .order('fecha_efectiva_pago', { ascending: false });
+        .order('fecha_efectiva', { ascending: false });
 
       // Aplicar los mismos filtros
       if (filtroTipo) query = query.eq('tipo', filtroTipo);
@@ -184,7 +204,7 @@ export const HistorialMovimientos: React.FC = () => {
       ];
 
       const csvData = data?.map(mov => [
-        new Date(mov.fecha_efectiva_pago).toLocaleDateString(),
+        new Date(mov.fecha_efectiva).toLocaleDateString(),
         mov.tipo,
         mov.descripcion,
         mov.monto,
@@ -546,6 +566,8 @@ export const HistorialMovimientos: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subcategoría</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prov/Cliente</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Forma de Pago</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fiscal</th>
                 </tr>
@@ -587,6 +609,12 @@ export const HistorialMovimientos: React.FC = () => {
                         )}
                         <span className="text-sm text-gray-900">{movimiento.categorias_financieras?.nombre}</span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {movimiento.subcategorias_financieras?.nombre || ''}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {movimiento.proveedores?.nombre || ''}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getFormaPagoColor(movimiento.forma_pago)}`}>

@@ -87,6 +87,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
   const [clientes, setClientes] = useState<PCItem[]>([]);
   // const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -654,10 +655,13 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
           descripcion: mov.descripcion,
           monto: mov.monto,
           fecha_movimiento: mov.fecha_movimiento,
-          fecha_programada: mov.fecha_programada,
-          estado: mov.estado,
-          fecha_efectiva: mov.fecha_efectiva || null,
-          es_fiscal: mov.es_fiscal,
+          // Para versiones de la función que esperan string obligatorio, usar fecha_movimiento como fallback
+          fecha_programada: (mov.fecha_programada && mov.fecha_programada.trim() !== '') ? mov.fecha_programada : mov.fecha_movimiento,
+          estado: (mov.estado === 'Pendiente' || !mov.estado) ? 'Registrado' : mov.estado,
+          // Omitir si está vacía (undefined se omite del JSON) o enviar string válido
+          fecha_efectiva: (mov.fecha_efectiva && mov.fecha_efectiva.trim() !== '') ? mov.fecha_efectiva : undefined,
+          // El schema espera 'fiscal', no 'es_fiscal'
+          fiscal: !!mov.es_fiscal,
           origen: mov.origen
         }));
 
@@ -699,9 +703,9 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         }
       }
 
-      setMovimientos([]);
+      // No vaciar la tabla: mantener filas visibles ("congeladas") hasta que se procesen
       setError(null);
-      alert('Movimientos guardados exitosamente');
+      alert('Movimientos guardados exitosamente. Puedes procesar los completados cuando quieras.');
 
     } catch (error) {
       console.error('Error guardando movimientos:', error);
@@ -787,13 +791,58 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
                 {movimientos.length} fila{movimientos.length !== 1 ? 's' : ''}
               </span>
             </div>
-            <button
-              onClick={handleGuardar}
-              disabled={saving || movimientos.length === 0}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-            >
-              {saving ? 'Guardando...' : 'Guardar Todos los Cambios'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  if (processing) return;
+                  console.log('[ProcesarPagos] click');
+                  setProcessing(true);
+                  try {
+                    // Supabase JS añade automáticamente el JWT del usuario si hay sesión activa
+                    const { data: { session } } = await supabase.auth.getSession();
+                    console.log('[ProcesarPagos] token?', !!session?.access_token);
+                    const res = await supabase.functions.invoke('procesar-pagos', { body: {} });
+                    if ((res as any)?.error) throw (res as any).error;
+                    console.log('[ProcesarPagos] done', res);
+                    const moved = (res as any)?.data?.moved ?? 0;
+                    if (moved > 0) {
+                      // Reflejar inmediatamente en UI: quitar los completados
+                      setMovimientos(prev => prev.filter(m => m.estado !== 'Completado'));
+                    }
+                    // Refrescar datasets visibles
+                    await Promise.all([
+                      loadCategorias(),
+                      loadSubcategorias(),
+                      loadMetodoCategorias(),
+                      loadMetodoSubcategorias(),
+                    ]);
+                    const localesCompletados = movimientos.filter(m => m.estado === 'Completado').length;
+                    if (moved === 0 && localesCompletados > 0) {
+                      alert('Pagos procesados: 0. Guarda cambios primero para que los "Completado" pasen a la base y luego vuelve a procesar.');
+                    } else {
+                      alert(`Pagos procesados: ${moved}`);
+                    }
+                  } catch (e: any) {
+                    console.error('[ProcesarPagos] error', e);
+                    setError(e?.message || 'Error procesando pagos');
+                  } finally {
+                    setProcessing(false);
+                  }
+                }}
+                className={`px-4 py-2 ${processing ? 'bg-purple-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white rounded-lg transition-colors text-sm font-medium`}
+                title="Mover pagos completados al historial"
+                disabled={processing}
+              >
+                {processing ? 'Procesando…' : 'Procesar pagos'}
+              </button>
+              <button
+                onClick={handleGuardar}
+                disabled={saving || movimientos.length === 0}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              >
+                {saving ? 'Guardando...' : 'Guardar Todos los Cambios'}
+              </button>
+            </div>
           </div>
 
           {/* Mensaje de error */}

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PencilSquareIcon, TrashIcon, Bars3Icon } from '@heroicons/react/24/outline';
 import { supabase } from '@/lib/supabase';
+import ColorChip from '@/components/ui/ColorChip';
 
 type Categoria = { id: string; nombre: string; tipo: 'Ingreso' | 'Egreso'; activa: boolean; color?: string | null; subcategorias: Subcategoria[] };
 type Subcategoria = { id: string; nombre: string; activa: boolean };
@@ -420,13 +421,7 @@ export const GestionCategorias: React.FC = () => {
                     onClick={() => setExpandedId(isExpanded ? null : cat.id)}
                     className="flex items-center gap-2 min-w-0 hover:opacity-90 focus:outline-none"
                   >
-                    <span
-                      className="inline-block rounded-md px-2 py-1 text-sm font-semibold truncate max-w-[220px]"
-                      style={{ backgroundColor: cat.color || '#CBD5E1', color: getTextColorForBg(cat.color) }}
-                      title={cat.nombre}
-                    >
-                      {cat.nombre}
-                    </span>
+                    <ColorChip label={cat.nombre} colorHex={cat.color || '#CBD5E1'} className="max-w-[220px]" />
                   </button>
                   <div className="flex items-center gap-2">
                     <span className="text-gray-400 cursor-grab active:cursor-grabbing" title="Arrastra para reordenar" draggable onDragStart={() => onDragStart(cat.id, categorias.filter(c => c.tipo === tipoSeleccion).sort((a,b) => (order[a.id] ?? 0) - (order[b.id] ?? 0)).map(c => c.id))} onClick={(e) => e.stopPropagation()}>
@@ -563,13 +558,7 @@ export const GestionCategorias: React.FC = () => {
                       onClick={() => setExpandedId(isExpanded ? null : cat.id)}
                       className="flex items-center gap-2 min-w-0 hover:opacity-90 focus:outline-none"
                     >
-                      <span
-                        className="inline-block rounded-md px-2 py-1 text-sm font-semibold truncate max-w-[220px]"
-                        style={{ backgroundColor: cat.color || '#CBD5E1', color: getTextColorForBg(cat.color) }}
-                        title={cat.nombre}
-                      >
-                        {cat.nombre}
-                      </span>
+                      <ColorChip label={cat.nombre} colorHex={cat.color || '#CBD5E1'} className="max-w-[220px]" />
                     </button>
                     <div className="flex items-center gap-2">
                       {isExpanded && (
@@ -673,7 +662,7 @@ export const GestionCategorias: React.FC = () => {
                 onClick={(e) => { e.stopPropagation(); setEditPcId(item.id); }}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <span className="inline-block rounded-md px-2 py-1 text-sm font-semibold truncate max-w-[220px]" style={{ backgroundColor: item.color || '#CBD5E1', color: getTextColorForBg(item.color) }} title={item.nombre}>{item.nombre}</span>
+                  <ColorChip label={item.nombre} colorHex={item.color || '#CBD5E1'} className="max-w-[220px]" />
                   {editPcId === item.id && (
                   <div className="flex items-center gap-2">
                     <input type="color" className="w-6 h-6 p-0 border border-gray-300 rounded" value={item.color || '#64748b'} onChange={async (e) => {
@@ -793,12 +782,16 @@ export const GestionCategorias: React.FC = () => {
                     </label>
                     <label className="block text-sm font-medium text-gray-700">
                       Color
-                      <input 
-                        type="color" 
-                        className="mt-1 w-16 h-8 p-0 border border-gray-300 rounded"
-                        value={formColor}
-                        onChange={(e) => setFormColor(e.target.value)}
-                      />
+                      <div className="mt-1 flex items-center gap-2">
+                        <ColorChip variant="background-only" colorHex={formColor} className="w-8 h-8 rounded-full border border-gray-300" />
+                        <span className="text-xs text-gray-600">{formColor}</span>
+                        <input 
+                          type="color" 
+                          className="w-16 h-8 p-0 border border-gray-300 rounded"
+                          value={formColor}
+                          onChange={(e) => setFormColor(e.target.value)}
+                        />
+                      </div>
                     </label>
                   </>
                 )}
@@ -1001,12 +994,16 @@ export const GestionCategorias: React.FC = () => {
             </label>
             <label className="block text-sm font-medium text-gray-700">
               Color
-              <input
-                type="color"
-                className="mt-1 w-16 h-8 p-0 border border-gray-300 rounded"
-                value={editMetodo.color}
-                onChange={(e) => setEditMetodo({ ...editMetodo, color: e.target.value })}
-              />
+              <div className="mt-1 flex items-center gap-2">
+                <ColorChip variant="background-only" colorHex={editMetodo.color} className="w-8 h-8 rounded-full border border-gray-300" />
+                <span className="text-xs text-gray-600">{editMetodo.color}</span>
+                <input
+                  type="color"
+                  className="w-16 h-8 p-0 border border-gray-300 rounded"
+                  value={editMetodo.color}
+                  onChange={(e) => setEditMetodo({ ...editMetodo, color: e.target.value })}
+                />
+              </div>
             </label>
             <label className="inline-flex items-center gap-2 text-sm text-gray-700">
               <input

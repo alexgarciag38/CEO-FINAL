@@ -5,6 +5,7 @@ import SmartDateInput, { SmartDateInputRef } from '@/components/ui/SmartDateInpu
 import RecurrencePickerPopover, { RecurrencePickerPopoverRef } from './RecurrencePickerPopover';
 import { LightningIcon, RefreshIcon, LetterIIcon, LetterEIcon, TrashIcon } from '@/components/ui/ProfessionalIcons';
 import { useTableContext } from './TableContext';
+import { adjustColorForSubentity, isValidHexColor } from '@/lib/colorUtils';
 
 interface MovimientoRapido {
   id: string;
@@ -34,7 +35,7 @@ interface MovimientoRapido {
 
 interface TableRowProps {
   movimiento: MovimientoRapido;
-  categorias: Array<{ id: string; nombre: string; color: string }>;
+  categorias: Array<{ id: string; nombre: string; color: string; tipo: 'Ingreso' | 'Egreso' }>;
   subcategorias: Array<{ id: string; nombre: string; color: string; categoria_id: string }>;
   metCats?: Array<{ id: string; nombre: string; color: string | null; tipo: 'Ingreso' | 'Egreso' }>;
   metSubs?: Array<{ id: string; nombre: string; categoria_id: string; activa: boolean }>;
@@ -172,9 +173,17 @@ const TableRow: React.FC<TableRowProps> = ({
     }
   ];
 
+  // Filtrar categorías por tipo del movimiento
+  const categoriasFiltradas = categorias.filter(cat => cat.tipo === movimiento.tipo);
   const subcategoriasFiltradas = subcategorias.filter(sub => sub.categoria_id === movimiento.categoriaId);
   const metodoCatsFiltradas = metCats.filter(mc => mc.tipo === movimiento.tipo);
   const metodoSubsFiltradas = metSubs.filter(ms => ms.categoria_id === movimiento.metodoCategoriaId);
+
+  // Colores heredados para subentidades
+  const categoriaSeleccionada = categorias.find(c => c.id === movimiento.categoriaId);
+  const colorCategoriaPadre = categoriaSeleccionada?.color;
+  const metodoCategoriaSeleccionada = metodoCatsFiltradas.find(mc => mc.id === movimiento.metodoCategoriaId) || null;
+  const colorMetodoPadre = metodoCategoriaSeleccionada?.color || undefined;
   const pcOptions = (movimiento.tipo === 'Egreso' ? proveedores : clientes).map(p => ({ value: p.id, label: p.nombre }));
 
   // Cuando la celda obtiene el foco, por defecto Enter abre Método
@@ -301,7 +310,7 @@ const TableRow: React.FC<TableRowProps> = ({
           id={`categoria-${movimiento.id}`}
           value={movimiento.categoriaId}
           onChange={(value) => onUpdate(movimiento.id, 'categoriaId', value)}
-          options={categorias.map(cat => ({ value: cat.id, label: cat.nombre, color: cat.color }))}
+          options={categoriasFiltradas.map(cat => ({ value: cat.id, label: cat.nombre, color: cat.color }))}
           placeholder="Categoría"
           className="w-full"
           cellCoordinates={{ row: rowIndex, col: 2 }}
@@ -322,7 +331,12 @@ const TableRow: React.FC<TableRowProps> = ({
           id={`subcategoria-${movimiento.id}`}
           value={movimiento.subcategoriaId}
           onChange={(value) => onUpdate(movimiento.id, 'subcategoriaId', value)}
-          options={subcategoriasFiltradas.map(sub => ({ value: sub.id, label: sub.nombre, color: sub.color }))}
+          options={subcategoriasFiltradas.map((sub, index) => {
+            const color = isValidHexColor(sub.color)
+              ? (sub.color as string)
+              : (isValidHexColor(colorCategoriaPadre) ? adjustColorForSubentity(colorCategoriaPadre as string, index) : undefined);
+            return { value: sub.id, label: sub.nombre, color };
+          })}
           placeholder="Subcat."
           className="w-full"
           disabled={!movimiento.categoriaId}
@@ -476,7 +490,11 @@ const TableRow: React.FC<TableRowProps> = ({
               id={`metsub-${movimiento.id}`}
               value={movimiento.metodoSubcategoriaId}
               onChange={(value) => onUpdate(movimiento.id, 'metodoSubcategoriaId', value)}
-              options={metodoSubsFiltradas.map(ms => ({ value: ms.id, label: ms.nombre }))}
+              options={metodoSubsFiltradas.map((ms, index) => ({
+                value: ms.id,
+                label: ms.nombre,
+                color: isValidHexColor(colorMetodoPadre) ? adjustColorForSubentity(colorMetodoPadre as string, index) : undefined
+              }))}
               placeholder="Submétodo"
               className="w-full"
               disabled={!movimiento.metodoCategoriaId}
@@ -539,8 +557,9 @@ const TableRow: React.FC<TableRowProps> = ({
         className={`px-1 py-2 cursor-pointer ${getFocusClassName(9)}`}
         onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 9 } })}
         ref={(el) => registerCellRef(rowIndex, 9, el)}
+        data-recurrence-td
         style={{ 
-          overflow: 'hidden', 
+          overflow: 'visible',
           textOverflow: 'ellipsis', 
           whiteSpace: 'nowrap'
         }}
@@ -574,7 +593,7 @@ const TableRow: React.FC<TableRowProps> = ({
       {/* COLUMNA 11: ESTADO / FECHA EFECTIVA */}
       <td 
         className={`px-1 py-2 cursor-pointer ${getFocusClassName(10)}`}
-        onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 10 } })}
+        onClick={() => handleDropdownCellClick(10)}
         ref={(el) => {
           registerCellRef(rowIndex, 10, el);
           if (el) (el as any).workingSelect = estadoSelectRef.current;

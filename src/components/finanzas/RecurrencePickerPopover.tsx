@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { createPortal } from 'react-dom';
 import { CogIcon } from '@/components/ui/ProfessionalIcons';
 
 interface RecurrenceConfig {
@@ -27,6 +28,7 @@ export const RecurrencePickerPopover = forwardRef(({ value, onChange, className 
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
 
   // Exponer métodos imperativos
   useImperativeHandle(ref, () => ({
@@ -46,6 +48,25 @@ export const RecurrencePickerPopover = forwardRef(({ value, onChange, className 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Posicionar popover en portal con posición fija y ancho reducido a la mitad
+  useEffect(() => {
+    if (!isOpen) return;
+    const trigger = containerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const desiredWidth = Math.max(150, Math.min(200, window.innerWidth - 24));
+    const safeLeft = Math.max(8, Math.min(rect.left, window.innerWidth - desiredWidth - 8));
+    setPopoverStyle({
+      position: 'fixed',
+      left: safeLeft,
+      top: rect.bottom + 4,
+      width: desiredWidth,
+      maxHeight: '60vh',
+      zIndex: 10000,
+      pointerEvents: 'auto'
+    });
+  }, [isOpen]);
 
   const getSummaryText = () => {
     const { frecuencia, finalizacion } = value;
@@ -188,10 +209,11 @@ export const RecurrencePickerPopover = forwardRef(({ value, onChange, className 
       </div>
 
       {/* Popover */}
-      {isOpen && (
+      {isOpen && createPortal(
         <div
           ref={popoverRef}
-          className="absolute top-full left-0 mt-1 z-[1000] w-[100px] bg-white border border-gray-300 rounded-md shadow-lg p-1 overflow-auto max-h-[60vh]"
+          className="bg-white border border-gray-300 rounded-md shadow-lg p-2 overflow-auto"
+          style={popoverStyle}
         >
           <div className="space-y-1.5">
             {/* Frecuencia */}
@@ -324,7 +346,8 @@ export const RecurrencePickerPopover = forwardRef(({ value, onChange, className 
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

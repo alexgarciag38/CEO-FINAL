@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
 import { useTableContext } from '../finanzas/TableContext';
+import ColorChip from '@/components/ui/ColorChip';
 
 // Icono SVG inline para evitar dependencias
 const ChevronDownIcon = ({ className }: { className?: string }) => (
@@ -59,7 +60,7 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
     state.activeDropdown.row === cellCoordinates.row &&
     state.activeDropdown.col === cellCoordinates.col;
   
-  const open = isActiveDropdown;
+  const open = !!isActiveDropdown;
 
   // CRÍTICO: Obtener dispatch del contexto para usar en useImperativeHandle
   const { dispatch } = useTableContext();
@@ -145,11 +146,14 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
   useEffect(() => {
     if (open && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
+      const desiredWidth = Math.min(rect.width * 2, Math.max(240, window.innerWidth - 16));
+      // Prevenir desbordes del viewport hacia la derecha
+      const safeLeft = Math.max(8, Math.min(rect.left, window.innerWidth - desiredWidth - 8));
       const style: React.CSSProperties = {
         position: 'fixed',
-        left: rect.left,
+        left: safeLeft,
         top: rect.bottom + 2,
-        width: rect.width,
+        width: desiredWidth,
         maxHeight: '200px',
         zIndex: 99999,
         pointerEvents: 'auto',
@@ -325,12 +329,11 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
     >
       {/* Botón principal */}
       <button
-        style={{ pointerEvents: 'auto' }} // CRÍTICO: Habilitar pointer events solo en el botón
         ref={buttonRef}
         type="button"
         id={id}
         disabled={disabled}
-        onClick={(e) => {
+        onClick={() => {
           console.log('WorkingSelect - Button clicked (COMPORTAMIENTO EXCEL - SOLO SELECCIÓN)');
           
           // CRÍTICO: NO prevenir ni detener la propagación para permitir que la celda maneje el clic
@@ -343,7 +346,7 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
         }}
         onKeyDown={handleKeyDown}
         className={`
-          w-full flex items-center justify-between px-2 py-1 text-xs
+          working-select-button w-full flex items-center justify-between px-2 py-1 text-xs
           border rounded-sm
           ${disabled 
             ? 'opacity-50 cursor-not-allowed' 
@@ -352,16 +355,21 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
           transition-colors duration-150
         `}
         style={{
+          pointerEvents: 'auto',
           backgroundColor: selectedColor ? `${selectedColor}20` : 'white',
           borderColor: selectedColor ? selectedColor : '#d1d5db'
         }}
         aria-haspopup="listbox"
-        aria-expanded={open}
+        aria-expanded={open ? 'true' : 'false'}
       >
-        <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <span className={`truncate font-medium ${selected ? 'text-gray-900' : 'text-gray-500'}`}>
-            {selected ? selected.label : placeholder}
-          </span>
+        <div className="flex items-center gap-1.5 min-w-0 max-w-full flex-1 overflow-hidden">
+          {selected && selected.color ? (
+            <ColorChip label={selected.label} colorHex={selected.color} className="w-full min-w-0" />
+          ) : (
+            <span className={`truncate font-medium ${selected ? 'text-gray-900' : 'text-gray-500'}`}>
+              {selected ? selected.label : placeholder}
+            </span>
+          )}
         </div>
         
         <ChevronDownIcon 
@@ -396,6 +404,7 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
               const optionColor = getColor(option);
               const isHighlighted = index === highlightedIndex;
               const isSelected = option.value === value;
+              const hasExplicitColor = !!option.color;
               
               return (
                 <div
@@ -412,13 +421,15 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
                     transition-all duration-150 rounded-sm
                   `}
                   style={{
-                    backgroundColor: isHighlighted 
-                      ? '#dbeafe' 
-                      : optionColor 
-                        ? `${optionColor}20` 
-                        : isSelected 
-                          ? '#dbeafe' 
-                          : 'white',
+                    backgroundColor: isHighlighted
+                      ? '#dbeafe'
+                      : hasExplicitColor
+                        ? 'white'
+                        : optionColor
+                          ? `${optionColor}20`
+                          : isSelected
+                            ? '#dbeafe'
+                            : 'white',
                     borderColor: optionColor ? optionColor : 'transparent'
                   }}
                   onClick={(e) => {
@@ -430,9 +441,13 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
                   role="option"
                   aria-selected={isSelected}
                 >
-                  <span className="truncate font-medium" style={{ color: optionColor ? '#1f2937' : '#374151' }}>
-                    {option.label}
-                  </span>
+                  {hasExplicitColor ? (
+                    <ColorChip label={option.label} colorHex={option.color as string} className="w-full" />
+                  ) : (
+                    <span className="truncate font-medium" style={{ color: optionColor ? '#1f2937' : '#374151' }}>
+                      {option.label}
+                    </span>
+                  )}
                 </div>
               );
             })

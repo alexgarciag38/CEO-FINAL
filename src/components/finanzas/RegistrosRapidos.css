@@ -99,8 +99,7 @@ body {
 .registro-rapido-table td input:focus, 
 .registro-rapido-table td select:focus {
   outline: none;
-  ring: 1px;
-  ring-color: #3b82f6; /* ring-blue-500 */
+  box-shadow: 0 0 0 1px #3b82f6; /* Simular ring */
   border-color: transparent;
 }
 
@@ -251,8 +250,9 @@ body {
 }
 
 /* Asegurar que ningún contenedor recorte los dropdowns */
+/* Evitar overflow visible global para permitir truncado en celdas */
 .registro-rapido-container * {
-  overflow: visible !important; /* Permitir que los dropdowns sean visibles */
+  overflow: initial !important;
 }
 
 /* Excepción para la tabla misma */
@@ -269,6 +269,26 @@ body {
 }
 
 .registro-rapido-container .registro-rapido-table td {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* Asegurar que el botón del select no deje salir el contenido */
+.registro-rapido-table .working-select-button,
+.registro-rapido-table .working-select-button > div,
+.registro-rapido-table [data-dropdown] .w-full,
+.registro-rapido-table [data-dropdown] .w-full > span,
+.registro-rapido-table [data-dropdown] .w-full > span > span {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* Permitir que el popover de recurrencia se muestre completamente */
+.registro-rapido-table td[data-recurrence-td] {
   overflow: visible !important;
 }
 
