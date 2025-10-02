@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useReducer } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useReducer, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import TableRow from './TableRow';
 // import IconToggle from '@/components/ui/IconToggle';
@@ -37,6 +37,11 @@ interface MovimientoRapido {
   fecha_efectiva: string;
   es_fiscal: boolean;
   origen: 'unico' | 'recurrente';
+  // Auto-save state
+  isDirty?: boolean;
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
+  lastError?: string;
+  saveTimeoutId?: any;
 }
 
 interface Categoria {
@@ -79,6 +84,8 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
   // ===== ESTADO PRINCIPAL =====
   const [state, dispatch] = useReducer(tableReducer, initialState);
   const [movimientos, setMovimientos] = useState<MovimientoRapido[]>([]);
+  const movimientosRef = useRef<MovimientoRapido[]>([]);
+  useEffect(() => { movimientosRef.current = movimientos; }, [movimientos]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [subcategorias, setSubcategorias] = useState<Subcategoria[]>([]);
   const [metCats, setMetCats] = useState<MetodoCat[]>([]);
@@ -90,10 +97,13 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const savingCount = useMemo(() => movimientos.filter(m => m.saveStatus === 'saving').length, [movimientos]);
 
   // ===== REFERENCIAS =====
   const cellRefs = useRef<Map<string, HTMLElement>>(new Map());
   const tableRef = useRef<HTMLTableElement>(null);
+  const saveTimersRef = useRef<Map<string, any>>(new Map());
+  const savingRowsRef = useRef<Set<string>>(new Set());
 
   // ===== FUNCIONES DE UTILIDAD =====
 
@@ -219,7 +229,9 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
       estado_regla: 'Activa',
       fecha_efectiva: '',
       es_fiscal: false,
-      origen: 'unico'
+      origen: 'unico',
+      isDirty: true,
+      saveStatus: 'idle'
     };
 
     setMovimientos(prev => [...prev, nuevoMovimiento]);
@@ -228,7 +240,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
   const actualizarMovimiento = useCallback((id: string, field: string, value: any) => {
     setMovimientos(prev => prev.map(mov => {
       if (mov.id === id) {
-        const updated = { ...mov, [field]: value };
+        const updated: MovimientoRapido = { ...mov, [field]: value, isDirty: true, saveStatus: mov.saveStatus === 'saving' ? 'saving' : 'idle', lastError: undefined } as any;
         
         // Lógica especial para cambio de modo
         if (field === 'modo') {
@@ -272,8 +284,21 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     }));
   }, []);
 
-  const eliminarFila = (id: string) => {
+  const eliminarFila = async (id: string) => {
+    const isUuidId = isUuid(id);
+    // Optimista: quitar de UI
+    const prevState = movimientos;
     setMovimientos(prev => prev.filter(mov => mov.id !== id));
+    if (!isUuidId) return; // si era temporal, no existe en DB
+    try {
+      const { error } = await supabase.functions.invoke('eliminar-movimientos', { body: { ids: [id] } });
+      if (error) throw error;
+    } catch (e) {
+      console.error('Eliminar movimiento falló, revirtiendo', e);
+      // Revertir si falla
+      setMovimientos(prevState);
+      setError('No se pudo eliminar en el servidor.');
+    }
   };
 
   const confirmarEliminarFila = () => {
@@ -351,6 +376,24 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
           // Fallback: Selección vía reducer
           dispatch({ type: 'SELECT_DROPDOWN_OPTION' });
         }
+        // Si estamos en Método (col 7), tras confirmar cerrar y abrir Submétodo con un ligero delay
+        if (activeDropdown.col === 7) {
+          // Asegurar cierre del dropdown actual antes de abrir el de Submétodo
+          dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
+          setTimeout(() => {
+            const td = cellRefs.current.get(getCellKey(row, 7)) as any;
+            if (td && td.workingSelectSub) {
+              td.workingSelect = td.workingSelectSub;
+            }
+            dispatch({ type: 'TOGGLE_DROPDOWN', payload: { row, col: 70 as any } });
+          }, 50);
+        }
+        // Si estamos en Submétodo (col virtual 70), mover foco a la derecha tras confirmar
+        if ((activeDropdown.col as any) === 70) {
+          setTimeout(() => {
+            dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: movimientos.length, maxCols: 13 } });
+          }, 0);
+        }
       } else if (key === 'Escape' || key === 'Tab') {
         event.preventDefault();
         event.stopPropagation();
@@ -379,6 +422,16 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
       } else if (key === 'Enter' || key === 'Tab') {
         event.preventDefault();
         dispatch({ type: 'STOP_EDITING' });
+        // Disparar guardado al finalizar edición por Enter/Tab
+        {
+          const rowId = movimientos[focusedCell!.row]?.id;
+          if (rowId) {
+            const current = movimientosRef.current.find(m => m.id === rowId);
+            if (current?.isDirty) {
+              scheduleRowSave(rowId);
+            }
+          }
+        }
         if (key === 'Enter' || (key === 'Tab' && !shiftKey)) {
           dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: movimientos.length, maxCols: 13 } });
         } else if (key === 'Tab' && shiftKey) {
@@ -390,6 +443,16 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         event.preventDefault();
         const direction = key.replace('Arrow', '').toLowerCase() as 'up' | 'down' | 'left' | 'right';
         dispatch({ type: 'STOP_EDITING' });
+        // Guardar al salir con flechas
+        {
+          const rowId = movimientos[focusedCell!.row]?.id;
+          if (rowId) {
+            const current = movimientosRef.current.find(m => m.id === rowId);
+            if (current?.isDirty) {
+              scheduleRowSave(rowId);
+            }
+          }
+        }
         dispatch({ type: 'MOVE_FOCUS', payload: { direction, maxRows: movimientos.length, maxCols: 13 } });
         return;
       }
@@ -468,10 +531,10 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
             (cellElement as any).smartDateInput.focus();
           }
         } else if (dropdownCols.includes(col)) {
-          console.log('RegistrosRapidos - Enter en dropdown, abriendo');
+          console.log('RegistrosRapidos - Enter en dropdown');
           event.preventDefault();
           event.stopPropagation();
-          // Cerrar cualquier dropdown abierto y abrir exactamente el de la celda enfocada
+          // Abrir el dropdown de la celda enfocada (Método 7 o Submétodo 70 o demás)
           if (state.activeDropdown) {
             dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
           }
@@ -483,7 +546,6 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
             setTimeout(() => {
               const cellEl = cellRefs.current.get(getCellKey(focusedCell.row, 8));
               const pop = cellEl ? (cellEl.querySelector('[data-recurrence]') as any) : null;
-              // Si el componente expone ref en el DOM
               if (pop && pop.open) pop.open();
             }, 0);
           }
@@ -506,23 +568,28 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         }
         // Añadir lógica para Toggles y Checkbox
       } else if (key.length === 1 && !shiftKey) { // Type-to-edit
-        console.log('RegistrosRapidos - Type-to-edit detectado:', { key, col: focusedCell.col, isTextInputFocused: isTextInputFocused(), isDateInputFocused: isDateInputFocused() });
+        const textFocused = isTextInputFocused();
+        // Solo consumir la tecla si vamos a iniciar edición (no si ya estamos editando)
+        if (!(state.isEditing && textFocused)) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        console.log('RegistrosRapidos - Type-to-edit detectado:', { key, col: focusedCell.col, isTextInputFocused: textFocused, isDateInputFocused: isDateInputFocused() });
           const movimiento = movimientos[focusedCell.row];
           if (movimiento) {
           // Manejar inputs de texto (columnas 4, 5, 6)
-          if (isTextInputFocused()) {
+          if (textFocused) {
             // Si ya estamos editando, no hacer nada - dejar que el input maneje la tecla
             if (state.isEditing) {
               return; // Dejar que el input nativo maneje la tecla
             }
             
             let fieldName = '';
-            if (focusedCell.col === 4) fieldName = 'proveedor_cliente';
-            else if (focusedCell.col === 5) fieldName = 'descripcion';
+            // Type-to-edit soportado solo en celdas de texto/número editables (NOTA y MONTO)
+            if (focusedCell.col === 5) fieldName = 'descripcion';
             else if (focusedCell.col === 6) fieldName = 'monto';
             
             if (fieldName) {
-              // Detectar si el campo está vacío: si está vacío, no usar overwrite para no seleccionar en azul
               const currentValue = fieldName === 'proveedor_cliente'
                 ? (movimiento.proveedor_cliente || '')
                 : fieldName === 'descripcion'
@@ -531,26 +598,24 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
                 ? String(movimiento.monto ?? '')
                 : '';
 
-              if (currentValue.trim().length === 0 && fieldName !== 'monto') {
-                // Campo vacío (texto): iniciar en append y escribir primera letra sin seleccionar
-                dispatch({ type: 'START_APPEND_EDITING' });
-                setTimeout(() => {
-                  actualizarMovimiento(movimiento.id, fieldName, key);
-                }, 40);
+              dispatch({ type: 'START_OVERWRITE_EDITING' });
+              // Sobrescribir contenido previo: iniciar con la tecla actual
+              if (fieldName === 'monto') {
+                const parsed = parseFloat(key.replace(/,/g, '.'));
+                actualizarMovimiento(movimiento.id, fieldName, Number.isFinite(parsed) ? parsed : 0);
               } else {
-                // Campo con contenido: NO usar overwrite para evitar selección azul; forzamos valor = primera letra y modo append
-                dispatch({ type: 'START_APPEND_EDITING' });
-                setTimeout(() => {
-                  actualizarMovimiento(movimiento.id, fieldName, key);
-                  const cellEl = cellRefs.current.get(getCellKey(focusedCell.row, focusedCell.col));
-                  const input = cellEl ? (cellEl.querySelector('input') as HTMLInputElement | null) : null;
-                  if (input) {
-                    input.focus();
-                    const len = input.value.length;
-                    try { input.setSelectionRange(len, len); } catch {}
-                  }
-                }, 30);
+                actualizarMovimiento(movimiento.id, fieldName, key);
               }
+              // Enfocar input y cursor al final
+              setTimeout(() => {
+                const cellEl = cellRefs.current.get(getCellKey(focusedCell.row, focusedCell.col));
+                const input = cellEl ? (cellEl.querySelector('input') as HTMLInputElement | null) : null;
+                if (input) {
+                  input.focus();
+                  const len = input.value.length;
+                  try { input.setSelectionRange(len, len); } catch {}
+                }
+              }, 0);
             }
           }
           // Manejar fecha (columna 7)
@@ -602,6 +667,28 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     return () => window.removeEventListener('rr-confirm-delete' as any, handler);
   }, []);
 
+  // Listener para commits explícitos emitidos desde celdas
+  useEffect(() => {
+    const onCommit = (e: any) => {
+      const id = e?.detail?.id as string | undefined;
+      if (id) commitRowNow(id);
+    };
+    window.addEventListener('rr:commit-row' as any, onCommit);
+    return () => window.removeEventListener('rr:commit-row' as any, onCommit);
+  }, []);
+
+  // Listener para commits sin debounce (guardar inmediato)
+  useEffect(() => {
+    const onCommitNow = (e: any) => {
+      const id = e?.detail?.id as string | undefined;
+      if (id) commitRowNow(id);
+    };
+    window.addEventListener('rr:commit-now' as any, onCommitNow);
+    return () => window.removeEventListener('rr:commit-now' as any, onCommitNow);
+  }, []);
+
+  // Eliminado: listener rr:update-columns. Guardado unificado vía scheduleRowSave/saveRow.
+
   // Efecto para enfocar la primera celda cuando se añade una nueva fila
   useEffect(() => {
     if (movimientos.length > 0 && !state.focusedCell) {
@@ -620,6 +707,58 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     loadClientes();
   }, []);
 
+  // Cargar movimientos persistidos al iniciar
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('listar-mis-movimientos', { body: {} });
+        if (error) throw error;
+        const items = (data as any)?.items as any[] || [];
+        const mapped: MovimientoRapido[] = items.map((r: any) => ({
+          id: r.id,
+          modo: r.origen === 'recurrente' ? 'Recurrente' : 'Unico',
+          tipo: r.tipo,
+          categoriaId: r.categoria_id || '',
+          subcategoriaId: r.subcategoria_id || '',
+          metodoCategoriaId: r.metodo_categoria_id || '',
+          metodoSubcategoriaId: r.metodo_subcategoria_id || '',
+          proveedor_cliente: r.proveedor_cliente || '',
+          descripcion: r.descripcion || '',
+          monto: Number(r.monto) || 0,
+          fecha_movimiento: r.fecha_movimiento || '',
+          fecha_programada: r.fecha_programada || '',
+          fecha_inicio: r.fecha_movimiento || r.fecha_programada || '',
+          frecuencia: 'mensual',
+          dia_especifico: 1,
+          dia_semana: 'lunes',
+          fecha_fin: '',
+          numero_repeticiones: 0,
+          estado: r.estado === 'Completado' ? 'Completado' : (r.estado === 'Cancelado' ? 'Cancelado' : 'Pendiente'),
+          estado_regla: 'Activa',
+          fecha_efectiva: r.fecha_efectiva || '',
+          es_fiscal: !!r.fiscal,
+          origen: r.origen || 'unico'
+        }));
+        setMovimientos(mapped);
+      } catch (e) {
+        console.error('Error cargando movimientos iniciales', e);
+      }
+    })();
+  }, []);
+
+  // Corrección de consistencia: si hay subcategoriaId, asegurar categoriaId = categoria padre
+  useEffect(() => {
+    if (!subcategorias || subcategorias.length === 0) return;
+    setMovimientos(prev => prev.map(m => {
+      if (!m.subcategoriaId) return m;
+      const sub = subcategorias.find(s => s.id === m.subcategoriaId);
+      if (sub && sub.categoria_id && sub.categoria_id !== m.categoriaId) {
+        return { ...m, categoriaId: sub.categoria_id } as any;
+      }
+      return m;
+    }));
+  }, [subcategorias.length]);
+
   // Auto-agregar fila si se especifica
   useEffect(() => {
     if (autoAddRow && movimientos.length === 0) {
@@ -628,6 +767,8 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
   }, [autoAddRow]);
 
   // ===== FUNCIONES DE GUARDADO =====
+
+  // isUuid ya está declarado antes en el archivo; reutilizarlo
 
   const guardarMovimientos = async () => {
     if (movimientos.length === 0) {
@@ -643,33 +784,49 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
       const movimientosRecurrentes = movimientos.filter(mov => mov.modo === 'Recurrente');
 
       if (movimientosUnicos.length > 0) {
-        const { data: user } = await supabase.auth.getUser();
-        if (!user.user) throw new Error('Usuario no autenticado');
-
-        const movimientosParaInsertar = movimientosUnicos.map(mov => ({
-          usuario_id: user.user.id,
+        const payload = movimientosUnicos.map(mov => ({
+          id: isUuid(mov.id) ? mov.id : undefined,
+          client_id: mov.id, // mapear ids temporales
           tipo: mov.tipo,
-          categoria_id: mov.categoriaId,
-          subcategoria_id: mov.subcategoriaId,
-          proveedor_cliente: mov.proveedor_cliente,
-          descripcion: mov.descripcion,
-          monto: mov.monto,
-          fecha_movimiento: mov.fecha_movimiento,
-          // Para versiones de la función que esperan string obligatorio, usar fecha_movimiento como fallback
-          fecha_programada: (mov.fecha_programada && mov.fecha_programada.trim() !== '') ? mov.fecha_programada : mov.fecha_movimiento,
-          estado: (mov.estado === 'Pendiente' || !mov.estado) ? 'Registrado' : mov.estado,
-          // Omitir si está vacía (undefined se omite del JSON) o enviar string válido
-          fecha_efectiva: (mov.fecha_efectiva && mov.fecha_efectiva.trim() !== '') ? mov.fecha_efectiva : undefined,
-          // El schema espera 'fiscal', no 'es_fiscal'
+          categoria_id: mov.categoriaId || null,
+          subcategoria_id: mov.subcategoriaId || null,
+          metodo_categoria_id: mov.metodoCategoriaId || null,
+          metodo_subcategoria_id: mov.metodoSubcategoriaId || null,
+          proveedor_cliente: mov.proveedor_cliente || null,
+          descripcion: (mov.descripcion || '').trim(),
+          monto: Number.isFinite(Number(mov.monto)) ? Number(mov.monto) : 0,
+          fecha_movimiento: mov.fecha_movimiento && mov.fecha_movimiento.trim() !== '' ? mov.fecha_movimiento : null,
+          fecha_programada: mov.fecha_programada && mov.fecha_programada.trim() !== '' ? mov.fecha_programada : null,
+          fecha_efectiva: mov.fecha_efectiva && mov.fecha_efectiva.trim() !== '' ? mov.fecha_efectiva : null,
+          forma_pago: null,
           fiscal: !!mov.es_fiscal,
-          origen: mov.origen
+          notas: null,
+          estado: (mov.estado === 'Pendiente' || !mov.estado) ? 'Registrado' : mov.estado,
+          origen: mov.origen,
+          regla_id: null,
+          n_orden_ocurrencia: null,
+          total_planeadas: null
         }));
 
-        const { error: errorUnicos } = await supabase.functions.invoke('guardar-movimientos-en-lote', {
-          body: { movimientos: movimientosParaInsertar }
+        const { data: res, error: errorUpsert } = await supabase.functions.invoke('upsert-movimientos-en-lote', {
+          body: { movimientos: payload }
         });
+        if (errorUpsert) throw errorUpsert;
 
-        if (errorUnicos) throw errorUnicos;
+        // Reconciliar IDs: reemplazar ids temporales con UUIDs retornados
+        const mappings: Record<string, string> = {};
+        try {
+          const mapArr = (res as any)?.mappings as Array<{ client_id: string | null; id: string }>;
+          if (Array.isArray(mapArr)) {
+            for (const m of mapArr) {
+              if (m.client_id && m.id && isUuid(m.id)) mappings[m.client_id] = m.id;
+            }
+          }
+        } catch {}
+
+        if (Object.keys(mappings).length > 0) {
+          setMovimientos(prev => prev.map(m => mappings[m.id] ? { ...m, id: mappings[m.id] } : m));
+        }
       }
 
       if (movimientosRecurrentes.length > 0) {
@@ -715,33 +872,139 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     }
   };
 
+  // ===== AUTO-GUARDADO POR FILA =====
+  const isUuid = (value: string) => /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i.test(value);
+
+  const buildUpsertPayloadFromRow = useCallback((row: MovimientoRapido) => {
+    const sub = subcategorias.find(s => s.id === row.subcategoriaId);
+    const categoriaForPayload = row.categoriaId || (sub ? sub.categoria_id : '');
+    return ({
+    id: isUuid(row.id) ? row.id : undefined,
+    client_id: row.id,
+    tipo: row.tipo,
+    categoria_id: categoriaForPayload || null,
+    subcategoria_id: row.subcategoriaId || null,
+    metodo_categoria_id: row.metodoCategoriaId || null,
+    metodo_subcategoria_id: row.metodoSubcategoriaId || null,
+    proveedor_cliente: row.proveedor_cliente || null,
+    descripcion: (row.descripcion || '').trim(),
+    monto: Number.isFinite(Number(row.monto)) ? Number(row.monto) : 0,
+    fecha_movimiento: row.fecha_movimiento && row.fecha_movimiento.trim() !== '' ? row.fecha_movimiento : null,
+    fecha_programada: row.fecha_programada && row.fecha_programada.trim() !== '' ? row.fecha_programada : null,
+    fecha_efectiva: row.fecha_efectiva && row.fecha_efectiva.trim() !== '' ? row.fecha_efectiva : null,
+    forma_pago: null,
+    fiscal: !!row.es_fiscal,
+    notas: null,
+    estado: (row.estado === 'Pendiente' || !row.estado) ? 'Registrado' : row.estado,
+    origen: row.origen,
+    regla_id: null,
+    n_orden_ocurrencia: null,
+    total_planeadas: null
+  });
+  }, [subcategorias]);
+
+  const saveRow = useCallback(async (rowId: string, attempt = 1): Promise<void> => {
+    if (savingRowsRef.current.has(rowId)) return; // evitar guardados simultáneos sobre la misma fila
+    savingRowsRef.current.add(rowId);
+    const row = movimientosRef.current.find(m => m.id === rowId);
+    if (!row) return;
+    // Marcar saving
+    setMovimientos(prev => prev.map(m => m.id === rowId ? { ...m, saveStatus: 'saving' } : m));
+    try {
+      const payload = buildUpsertPayloadFromRow(row);
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout guardando fila (>6s)')), 6000));
+      const invoke = supabase.functions.invoke('upsert-movimientos-en-lote', { body: { movimientos: [payload] } });
+      const { data: res, error: upErr } = await Promise.race([invoke, timeout]) as any;
+      if (upErr) throw upErr;
+      // Reconciliar IDs
+      const mappingsArr = (res as any)?.mappings as Array<{ client_id: string | null; id: string }> | undefined;
+      let newId: string | undefined;
+      if (Array.isArray(mappingsArr)) {
+        const found = mappingsArr.find(m => m.client_id === row.id && isUuid(m.id));
+        if (found) newId = found.id;
+      }
+      setMovimientos(prev => prev.map(m => {
+        if (m.id !== rowId) return m;
+        // Asegurar consistencia local: si subcategoria fija otra categoria, reflejarla
+        const sub = subcategorias.find(s => s.id === m.subcategoriaId);
+        const fixedCategoriaId = sub?.categoria_id && sub.categoria_id !== m.categoriaId ? sub.categoria_id : m.categoriaId;
+        const next: MovimientoRapido = { ...m, categoriaId: fixedCategoriaId, isDirty: false, saveStatus: 'saved', lastError: undefined } as any;
+        if (newId) next.id = newId;
+        return next;
+      }));
+    } catch (e: any) {
+      // Extraer mensaje de Edge Function (PGRST o Zod)
+      let message = e?.message || 'Fallo al guardar';
+      try {
+        const parsed = typeof e?.context?.error === 'string' ? JSON.parse(e.context.error) : e?.context?.error;
+        if (parsed?.error === 'UPSERT_FAILED') {
+          message = parsed.message || message;
+          if (parsed?.hint) message += ` | Hint: ${parsed.hint}`;
+        }
+      } catch {}
+      const retriable = attempt < 3 && (!e || (e.status && e.status >= 500));
+      if (retriable) {
+        await new Promise(r => setTimeout(r, attempt === 1 ? 500 : 1500));
+        return saveRow(rowId, attempt + 1);
+      }
+      setMovimientos(prev => prev.map(m => m.id === rowId ? { ...m, saveStatus: 'error', lastError: message } : m));
+      console.error('[AutoSave] Error guardando fila', rowId, e);
+    }
+    finally {
+      savingRowsRef.current.delete(rowId);
+    }
+  }, [buildUpsertPayloadFromRow, subcategorias]);
+
+  const commitRowNow = async (rowId: string) => {
+    setMovimientos(prev => prev.map(m => m.id === rowId ? { ...m, saveStatus: 'saving' } : m));
+    // Esperar un tick para que el setState de onUpdate se aplique antes de leer la fila
+    await new Promise((r) => setTimeout(r, 40));
+    try {
+      await saveRow(rowId);
+    } catch (e: any) {
+      setMovimientos(prev => prev.map(m => m.id === rowId ? { ...m, saveStatus: 'error', lastError: e?.message || 'Fallo al guardar' } : m));
+      console.error('[CommitNow] Error guardando fila', rowId, e);
+    }
+  };
+
+  const scheduleRowSave = useCallback((rowId: string, delayMs: number = 300) => {
+    const existing = saveTimersRef.current.get(rowId);
+    if (existing) {
+      try { clearTimeout(existing); } catch {}
+    }
+    const timerId = setTimeout(async () => {
+      saveTimersRef.current.delete(rowId);
+      try {
+        await saveRow(rowId);
+      } catch (e) {
+        console.error('[AutoSave] scheduleRowSave error', e);
+      }
+    }, delayMs);
+    saveTimersRef.current.set(rowId, timerId);
+  }, [saveRow]);
+
   const validarMovimientos = () => {
-    const errores: string[] = [];
+    const advertencias: string[] = [];
 
     movimientos.forEach((mov, index) => {
-      if (!mov.categoriaId) errores.push(`Fila ${index + 1}: Categoría requerida`);
-      if (!mov.subcategoriaId) errores.push(`Fila ${index + 1}: Subcategoría requerida`);
-      if (!mov.proveedor_cliente.trim()) errores.push(`Fila ${index + 1}: Proveedor/Cliente requerido`);
-      if (!mov.descripcion.trim()) errores.push(`Fila ${index + 1}: Descripción requerida`);
-      if (mov.monto <= 0) errores.push(`Fila ${index + 1}: Monto debe ser mayor a 0`);
-
+      if (!mov.descripcion.trim()) advertencias.push(`Fila ${index + 1}: Falta descripción`);
+      if (!Number.isFinite(Number(mov.monto)) || Number(mov.monto) <= 0) advertencias.push(`Fila ${index + 1}: Monto no establecido`);
       if (mov.modo === 'Unico') {
-        if (!mov.fecha_movimiento) errores.push(`Fila ${index + 1}: Fecha de movimiento requerida`);
+        if (!mov.fecha_movimiento) advertencias.push(`Fila ${index + 1}: Fecha de movimiento vacía`);
       } else {
-        if (!mov.fecha_inicio) errores.push(`Fila ${index + 1}: Fecha de inicio requerida`);
+        if (!mov.fecha_inicio) advertencias.push(`Fila ${index + 1}: Fecha de inicio vacía`);
       }
     });
 
-    return errores;
+    return advertencias;
   };
 
   const handleGuardar = async () => {
-    const errores = validarMovimientos();
-    if (errores.length > 0) {
-      setError(errores.join('\n'));
-      return;
+    const advertencias = validarMovimientos();
+    if (advertencias.length > 0) {
+      // Mostrar como aviso no bloqueante
+      console.warn('[Guardar] Advertencias no bloqueantes:', advertencias);
     }
-
     await guardarMovimientos();
   };
 
@@ -767,11 +1030,17 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
                 Crea, edita y elimina Pagos Únicos y Reglas Recurrentes con máxima eficiencia
               </p>
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="flex items-center gap-4 text-sm text-gray-500">
               <span className="inline-flex items-center gap-2">
                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                 Modo de Alta Rápida
               </span>
+              {savingCount > 0 && (
+                <span className="inline-flex items-center gap-2 text-blue-600">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                  Guardando {savingCount} fila{savingCount !== 1 ? 's' : ''}…
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -798,30 +1067,38 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
                   console.log('[ProcesarPagos] click');
                   setProcessing(true);
                   try {
-                    // Supabase JS añade automáticamente el JWT del usuario si hay sesión activa
-                    const { data: { session } } = await supabase.auth.getSession();
-                    console.log('[ProcesarPagos] token?', !!session?.access_token);
-                    const res = await supabase.functions.invoke('procesar-pagos', { body: {} });
-                    if ((res as any)?.error) throw (res as any).error;
-                    console.log('[ProcesarPagos] done', res);
-                    const moved = (res as any)?.data?.moved ?? 0;
+                    // 1) Forzar guardado de filas en UI con estado 'Completado'
+                    const completadosUI = movimientos.filter(m => m.estado === 'Completado');
+                    for (const m of completadosUI) {
+                      if (!isUuid(m.id) || m.isDirty || m.saveStatus !== 'saved') {
+                        try { await saveRow(m.id); } catch (_) {}
+                      }
+                    }
+                    // 2) Invocar procesamiento en backend (pasar ids guardados si existen)
+                    const idsAEvaluar = movimientos.filter(m => m.estado === 'Completado' && isUuid(m.id)).map(m => m.id);
+                    const { data, error } = await supabase.functions.invoke('procesar-pagos', { body: { ids: idsAEvaluar } });
+                    if (error) throw error;
+                    console.log('[ProcesarPagos] done', data);
+                    const moved = (data as any)?.moved ?? 0;
+                    if ((data as any)?.error === 'VALIDATION_ERROR') {
+                      const det = (data as any)?.details || {};
+                      const faltanMetodo = (det.missing_method_ids || []).length;
+                      const faltanSub = (det.missing_submethod_ids || []).length;
+                      const msg = `No se pudieron procesar ${faltanMetodo + faltanSub} filas: ${faltanMetodo>0?`${faltanMetodo} sin Método` : ''}${faltanMetodo>0 && faltanSub>0? ' y ' : ''}${faltanSub>0?`${faltanSub} sin Submétodo` : ''}.`;
+                      alert(msg);
+                      return;
+                    }
                     if (moved > 0) {
-                      // Reflejar inmediatamente en UI: quitar los completados
+                      // Quitar los completados procesados de la UI
                       setMovimientos(prev => prev.filter(m => m.estado !== 'Completado'));
                     }
-                    // Refrescar datasets visibles
                     await Promise.all([
                       loadCategorias(),
                       loadSubcategorias(),
                       loadMetodoCategorias(),
                       loadMetodoSubcategorias(),
                     ]);
-                    const localesCompletados = movimientos.filter(m => m.estado === 'Completado').length;
-                    if (moved === 0 && localesCompletados > 0) {
-                      alert('Pagos procesados: 0. Guarda cambios primero para que los "Completado" pasen a la base y luego vuelve a procesar.');
-                    } else {
-                      alert(`Pagos procesados: ${moved}`);
-                    }
+                    alert(`Pagos procesados: ${moved}`);
                   } catch (e: any) {
                     console.error('[ProcesarPagos] error', e);
                     setError(e?.message || 'Error procesando pagos');
@@ -835,13 +1112,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
               >
                 {processing ? 'Procesando…' : 'Procesar pagos'}
               </button>
-              <button
-                onClick={handleGuardar}
-                disabled={saving || movimientos.length === 0}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-              >
-                {saving ? 'Guardando...' : 'Guardar Todos los Cambios'}
-              </button>
+              {/* Botón de guardar eliminado: auto-guardado por fila activo */}
             </div>
           </div>
 
@@ -939,7 +1210,12 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
                     metSubs={metSubs}
                     proveedores={proveedores}
                     clientes={clientes}
-                    onUpdate={actualizarMovimiento}
+                    onUpdate={(id, field, value) => {
+                      // Solo actualizar estado local, sin guardar todavía
+                      actualizarMovimiento(id, field, value);
+                    }}
+                    onSaveRow={(id) => scheduleRowSave(id)}
+                    onCommit={(id) => commitRowNow(id)}
                     onDelete={eliminarFila}
                     onEdit={editarFila}
                     rowIndex={rowIndex}

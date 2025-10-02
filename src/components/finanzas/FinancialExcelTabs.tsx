@@ -502,18 +502,14 @@ export const FinancialExcelTabs: React.FC = () => {
       }
       const payloads = rows.map(r => ({
         id: r.id,
-        usuario_id: undefined, // default auth.uid()
-        movimiento: mov,
-        scope_tipo: r.scope_tipo,
-        tipo: mov, // para compatibilidad con componentes existentes
+        client_id: r.id,
+        scope_tipo: r.scope_tipo || null,
+        tipo: mov,
         categoria_id: r.categoria_id || null,
         subcategoria_id: r.subcategoria_id || null,
-        categoria_nombre: undefined,
-        subcategoria_nombre: undefined,
         fiscal: r.fiscal === 'SI',
         descripcion: r.descripcion.trim(),
         proveedor_cliente: r.proveedor_cliente || null,
-        proveedor_id: null,
         forma_pago: r.forma_pago,
         monto: Number(r.monto),
         fecha_programada: r.fecha_programada,
@@ -524,17 +520,21 @@ export const FinancialExcelTabs: React.FC = () => {
         notas: r.notas || null
       }));
 
-      const toInsert = payloads.filter(p => !p.id).map(p => ({ ...p, id: undefined }));
-      const toUpdate = payloads.filter(p => !!p.id);
+      const { data, error } = await supabase.functions.invoke('excel-upsert-payments', {
+        body: { payments: payloads }
+      });
+      if (error) throw error;
 
-      if (toInsert.length > 0) {
-        const { error } = await supabase.from('financial_payments').insert(toInsert);
-        if (error) throw error;
-      }
-      for (const p of toUpdate) {
-        const { error } = await supabase.from('financial_payments').update(p).eq('id', p.id as string);
-        if (error) throw error;
-      }
+      // Opcional: reconciliar ids si hubiera filas nuevas
+      try {
+        const mappings = (data as any)?.mappings as Array<{ client_id: string | null; id: string }>;
+        if (Array.isArray(mappings) && mappings.some(m => m.client_id && m.id)) {
+          const map: Record<string, string> = {};
+          for (const m of mappings) if (m.client_id && m.id) map[m.client_id] = m.id;
+          if (mov === 'Ingreso') setRowsIngresos(prev => prev.map(r => map[r.id || ''] ? { ...r, id: map[r.id || ''] } : r));
+          else setRowsEgresos(prev => prev.map(r => map[r.id || ''] ? { ...r, id: map[r.id || ''] } : r));
+        }
+      } catch {}
 
       await loadData();
     } catch (e: any) {
@@ -552,11 +552,17 @@ export const FinancialExcelTabs: React.FC = () => {
   const removeRow = async (mov: Movimiento, idx: number) => {
     if (mov === 'Ingreso') {
       const row = rowsIngresos[idx];
-      if (row?.id) await supabase.from('financial_payments').delete().eq('id', row.id);
+      if (row?.id) {
+        const { error } = await supabase.functions.invoke('excel-delete-payments', { body: { ids: [row.id] } });
+        if (error) throw error;
+      }
       setRowsIngresos(prev => prev.filter((_, i) => i !== idx));
     } else {
       const row = rowsEgresos[idx];
-      if (row?.id) await supabase.from('financial_payments').delete().eq('id', row.id);
+      if (row?.id) {
+        const { error } = await supabase.functions.invoke('excel-delete-payments', { body: { ids: [row.id] } });
+        if (error) throw error;
+      }
       setRowsEgresos(prev => prev.filter((_, i) => i !== idx));
     }
   };
@@ -569,11 +575,9 @@ export const FinancialExcelTabs: React.FC = () => {
       setError('Establece la Fecha Efectiva antes de marcar como pagado/cobrado');
       return;
     }
-    const { error } = await supabase
-      .from('financial_payments')
-      .update({ pagado: true, fecha_efectiva_pago: row.fecha_efectiva_pago })
-      .eq('id', row.id);
-    if (error) { setError(error.message); return; }
+    // Mover a historial directamente
+    const { error } = await supabase.functions.invoke('excel-move-to-history', { body: { ids: [row.id] } });
+    if (error) { setError((error as any).message || 'Error moviendo a historial'); return; }
     await loadData();
   };
 
@@ -661,20 +665,19 @@ export const FinancialExcelTabs: React.FC = () => {
       setError(null);
       try {
         const arr = mov === 'Ingreso' ? histIngresos : histEgresos;
-        for (const r of arr) {
-          const payload = {
-            scope_tipo: r.scope_tipo || null,
-            descripcion: r.descripcion,
-            proveedor_cliente: r.proveedor_cliente || null,
-            forma_pago: r.forma_pago,
-            monto: r.monto,
-            fecha_programada: r.fecha_programada,
-            fecha_efectiva_pago: r.fecha_efectiva_pago,
-            notas: r.notas || null
-          };
-          const { error } = await supabase.from('financial_payments_history').update(payload).eq('id', r.id);
-          if (error) throw error;
-        }
+        const payload = arr.map(r => ({
+          id: r.id,
+          scope_tipo: r.scope_tipo || null,
+          descripcion: r.descripcion,
+          proveedor_cliente: r.proveedor_cliente || null,
+          forma_pago: r.forma_pago,
+          monto: r.monto,
+          fecha_programada: r.fecha_programada,
+          fecha_efectiva_pago: r.fecha_efectiva_pago,
+          notas: r.notas || null
+        }));
+        const { error } = await supabase.functions.invoke('excel-upsert-history', { body: { rows: payload } });
+        if (error) throw error;
         await loadData();
       } catch (e: any) {
         setError(e.message || 'Error guardando historial');

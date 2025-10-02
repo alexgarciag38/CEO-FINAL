@@ -46,11 +46,11 @@ Deno.serve(async (req) => {
     const fechaInicio = new Date();
     fechaInicio.setDate(fechaInicio.getDate() - dias_atras);
 
-    // Obtener movimientos (sin join a auth.users para evitar problemas de RLS)
+    // Tomar actividad desde HISTORIAL (pagos procesados) usando fecha_efectiva
     const { data: movimientos, error } = await supabase
-      .from('movimientos_financieros')
-      .select('*')
-      .gte('created_at', fechaInicio.toISOString());
+      .from('movimientos_historial')
+      .select('usuario_id, tipo, monto, fecha_efectiva')
+      .gte('fecha_efectiva', fechaInicio.toISOString());
 
     if (error) throw error;
 

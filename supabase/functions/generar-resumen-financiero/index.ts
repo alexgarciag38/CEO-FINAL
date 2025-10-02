@@ -34,53 +34,38 @@ Deno.serve(async (req) => {
     
     const saldoInicialCaja = configSaldo ? parseFloat(configSaldo.valor) || 0 : 0;
 
+    // Base 100% en HISTORIAL (única fuente confiable)
     const { data: movimientos, error } = await supabase
-      .from('movimientos_financieros')
-      .select('*');
+      .from('movimientos_historial')
+      .select('tipo, monto, fecha_efectiva');
     if (error) throw error;
 
-    let ingresosPorVenir = 0; // Ingresos con fecha_programada en (now, horizon] y estado Registrado
-    let pagosPorHacer = 0;     // Egresos con fecha_programada en (now, horizon] y estado Registrado
-    let saldosVencidos = 0;    // Total vencido (ingresos+egresos) con fecha_programada < now y estado Registrado
-    let vencidosPorCobrar = 0; // Ingresos vencidos
-    let vencidosDebe = 0;      // Egresos vencidos
-    let flujoProyectado = 0;   // Sumatoria neta: ingresos - egresos de Registrado y Completado dentro del horizonte
+    let ingresosPorVenir = 0; // Ingresos en historial con fecha_efectiva en (now, horizon]
+    let pagosPorHacer = 0;     // Egresos en historial con fecha_efectiva en (now, horizon]
+    let saldosVencidos = 0;    // En enfoque de historial, vencidos = 0 (solo hay completados)
+    let vencidosPorCobrar = 0; // 0
+    let vencidosDebe = 0;      // 0
+    let flujoProyectado = 0;   // Neto de historial dentro del horizonte futuro
 
     for (const m of movimientos || []) {
       const tipo = m.tipo as 'Ingreso' | 'Egreso';
-      const estado = m.estado as string;
       const monto = Number(m.monto) || 0;
-      const fp = m.fecha_programada ? new Date(m.fecha_programada) : null;
-      const fm = m.fecha_movimiento ? new Date(m.fecha_movimiento) : null;
+      const fe = m.fecha_efectiva ? new Date(m.fecha_efectiva) : null;
 
-      // Vencidos
-      if (fp && fp < now && estado === 'Registrado') {
-        if (tipo === 'Ingreso') { vencidosPorCobrar += monto; } else { vencidosDebe += monto; }
-        saldosVencidos += monto;
-      }
-
-      // Por venir
-      if (fp && fp > now && fp <= horizon && estado === 'Registrado') {
+      // Por venir (dentro del horizonte futuro) basado en historial
+      if (fe && fe > now && fe <= horizon) {
         if (tipo === 'Ingreso') ingresosPorVenir += monto; else pagosPorHacer += monto;
-      }
-
-      // Flujo proyectado (simple): considerar Registrado dentro de horizonte y Completado del período actual
-      const withinHorizon = fm && fm <= horizon;
-      if (withinHorizon && (estado === 'Registrado' || estado === 'Completado')) {
         flujoProyectado += tipo === 'Ingreso' ? monto : -monto;
       }
     }
 
-    // Calcular dinero actual disponible (saldo inicial + flujo completado)
+    // Calcular dinero actual disponible (saldo inicial + neto de historial ya efectivo hasta hoy)
     let dineroActualDisponible = saldoInicialCaja;
     for (const m of movimientos || []) {
       const tipo = m.tipo as 'Ingreso' | 'Egreso';
-      const estado = m.estado as string;
       const monto = Number(m.monto) || 0;
-      
-      if (estado === 'Completado') {
-        dineroActualDisponible += tipo === 'Ingreso' ? monto : -monto;
-      }
+      const fe = m.fecha_efectiva ? new Date(m.fecha_efectiva) : null;
+      if (fe && fe <= now) dineroActualDisponible += tipo === 'Ingreso' ? monto : -monto;
     }
 
     const resumen = {

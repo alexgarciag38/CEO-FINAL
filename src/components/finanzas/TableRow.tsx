@@ -31,6 +31,9 @@ interface MovimientoRapido {
   fecha_efectiva: string;
   es_fiscal: boolean;
   origen: 'unico' | 'recurrente';
+  isDirty?: boolean;
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
+  lastError?: string;
 }
 
 interface TableRowProps {
@@ -42,6 +45,8 @@ interface TableRowProps {
   proveedores?: Array<{ id: string; nombre: string }>;
   clientes?: Array<{ id: string; nombre: string }>;
   onUpdate: (id: string, field: string, value: any) => void;
+  onSaveRow: (id: string) => void;
+  onCommit: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   rowIndex: number;
@@ -57,6 +62,8 @@ const TableRow: React.FC<TableRowProps> = ({
   proveedores = [],
   clientes = [],
   onUpdate,
+  onSaveRow,
+  onCommit,
   onDelete,
   rowIndex,
   registerCellRef,
@@ -225,24 +232,13 @@ const TableRow: React.FC<TableRowProps> = ({
         setTimeout(() => {
           inputRef.focus();
           
-          // Comportamiento diferente según el modo de edición
-          if (state.editMode === 'append') {
-            // Doble clic: cursor al final para editar existente
-            setTimeout(() => {
-              if (inputRef.type !== 'number') {
-                inputRef.setSelectionRange(inputRef.value.length, inputRef.value.length);
-              }
-            }, 10);
-          } else {
-            // Type-to-edit: enfocar input (no limpiar inmediatamente)
-            setTimeout(() => {
-              inputRef.focus();
-              // Seleccionar todo el texto para sobrescribir
-              if (inputRef.type !== 'number') {
-                inputRef.setSelectionRange(0, inputRef.value.length);
-              }
-            }, 50);
-          }
+          // Siempre colocar el cursor al final (evita seleccionar en azul la primera letra)
+          setTimeout(() => {
+            if (inputRef.type !== 'number') {
+              const len = inputRef.value.length;
+              inputRef.setSelectionRange(len, len);
+            }
+          }, 10);
         }, 0);
       }
     }
@@ -309,7 +305,7 @@ const TableRow: React.FC<TableRowProps> = ({
           ref={categoriaSelectRef}
           id={`categoria-${movimiento.id}`}
           value={movimiento.categoriaId}
-          onChange={(value) => onUpdate(movimiento.id, 'categoriaId', value)}
+          onChange={(value) => { onUpdate(movimiento.id, 'categoriaId', value); setTimeout(() => onSaveRow(movimiento.id), 0); }}
           options={categoriasFiltradas.map(cat => ({ value: cat.id, label: cat.nombre, color: cat.color }))}
           placeholder="Categoría"
           className="w-full"
@@ -330,7 +326,7 @@ const TableRow: React.FC<TableRowProps> = ({
           ref={subcategoriaSelectRef}
           id={`subcategoria-${movimiento.id}`}
           value={movimiento.subcategoriaId}
-          onChange={(value) => onUpdate(movimiento.id, 'subcategoriaId', value)}
+          onChange={(value) => { onUpdate(movimiento.id, 'subcategoriaId', value); setTimeout(() => onSaveRow(movimiento.id), 0); }}
           options={subcategoriasFiltradas.map((sub, index) => {
             const color = isValidHexColor(sub.color)
               ? (sub.color as string)
@@ -357,7 +353,7 @@ const TableRow: React.FC<TableRowProps> = ({
           ref={pcSelectRef}
           id={`pc-${movimiento.id}`}
           value={movimiento.proveedor_cliente}
-          onChange={(value) => onUpdate(movimiento.id, 'proveedor_cliente', value)}
+          onChange={(value) => { onUpdate(movimiento.id, 'proveedor_cliente', value); setTimeout(() => onSaveRow(movimiento.id), 0); }}
           options={pcOptions}
           placeholder="PROV/CLIENTE"
           className="w-full"
@@ -381,17 +377,20 @@ const TableRow: React.FC<TableRowProps> = ({
             className="w-full px-1 py-1 text-xs border border-blue-500 rounded ring-1 ring-blue-500"
             autoFocus
             onBlur={(e) => {
-              // Solo detener edición si el foco se mueve fuera del input
               setTimeout(() => {
                 if (document.activeElement !== e.target) {
                   dispatch({ type: 'STOP_EDITING' });
+                  if (movimiento.isDirty) onSaveRow(movimiento.id);
                 }
-              }, 100);
+              }, 50);
             }}
         />
         ) : (
           <div className="w-full px-1 py-1 text-xs truncate" title={movimiento.descripcion}>
             {movimiento.descripcion || <span className="text-gray-400">NOTA</span>}
+            {movimiento.saveStatus === 'saving' && <span className="ml-2 text-[10px] text-blue-500">Guardando…</span>}
+            {movimiento.saveStatus === 'saved' && movimiento.isDirty !== true && <span className="ml-2 text-[10px] text-green-600">Guardado</span>}
+            {movimiento.saveStatus === 'error' && <span className="ml-2 text-[10px] text-red-600" title={movimiento.lastError || ''}>Error</span>}
           </div>
         )}
       </td>
@@ -408,16 +407,20 @@ const TableRow: React.FC<TableRowProps> = ({
             ref={montoInputRef}
           type="number"
           value={movimiento.monto}
-            onChange={(e) => onUpdate(movimiento.id, 'monto', parseFloat(e.target.value) || 0)}
+            onChange={(e) => {
+              const v = e.target.value;
+              const parsed = v === '' ? 0 : (parseFloat(v.replace(/,/g, '.')) || 0);
+              onUpdate(movimiento.id, 'monto', parsed);
+            }}
             className="w-full px-1 py-1 text-xs border border-blue-500 rounded ring-1 ring-blue-500 text-right"
             autoFocus
             onBlur={(e) => {
-              // Solo detener edición si el foco se mueve fuera del input
               setTimeout(() => {
                 if (document.activeElement !== e.target) {
                   dispatch({ type: 'STOP_EDITING' });
+                  if (movimiento.isDirty) onSaveRow(movimiento.id);
                 }
-              }, 100);
+              }, 50);
             }}
           step="0.01"
           min="0"
@@ -468,6 +471,7 @@ const TableRow: React.FC<TableRowProps> = ({
                   if (td) td.workingSelect = metodoSubRef.current;
                   dispatch({ type: 'TOGGLE_DROPDOWN', payload: { row: rowIndex, col: 70 as any } });
                 }, 0);
+                setTimeout(() => onSaveRow(movimiento.id), 0);
               }}
               options={metodoCatsFiltradas.map(mc => ({ value: mc.id, label: mc.nombre, color: mc.color || undefined }))}
               placeholder="Método"
@@ -489,7 +493,7 @@ const TableRow: React.FC<TableRowProps> = ({
               ref={metodoSubRef}
               id={`metsub-${movimiento.id}`}
               value={movimiento.metodoSubcategoriaId}
-              onChange={(value) => onUpdate(movimiento.id, 'metodoSubcategoriaId', value)}
+              onChange={(value) => { onUpdate(movimiento.id, 'metodoSubcategoriaId', value); setTimeout(() => onSaveRow(movimiento.id), 0); }}
               options={metodoSubsFiltradas.map((ms, index) => ({
                 value: ms.id,
                 label: ms.nombre,
@@ -522,11 +526,13 @@ const TableRow: React.FC<TableRowProps> = ({
             onStateChange={(isNowEditing) => {
               if (!isNowEditing && isCellEditing(8)) {
                 dispatch({ type: 'STOP_EDITING' });
+                if (movimiento.isDirty) onSaveRow(movimiento.id);
               }
             }}
             onComplete={() => {
               // Mover foco a la derecha cuando se completa dd/mm/aaaa
               dispatch({ type: 'STOP_EDITING' });
+              onSaveRow(movimiento.id);
               dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: (state.focusedCell ? state.focusedCell.row + 1 : 1), maxCols: 13 } });
             }}
           />
@@ -541,10 +547,12 @@ const TableRow: React.FC<TableRowProps> = ({
             onStateChange={(isNowEditing) => {
               if (!isNowEditing && isCellEditing(8)) {
                 dispatch({ type: 'STOP_EDITING' });
+                if (movimiento.isDirty) onSaveRow(movimiento.id);
               }
             }}
             onComplete={() => {
               dispatch({ type: 'STOP_EDITING' });
+              onSaveRow(movimiento.id);
               dispatch({ type: 'MOVE_FOCUS', payload: { direction: 'right', maxRows: (state.focusedCell ? state.focusedCell.row + 1 : 1), maxCols: 13 } });
             }}
           />
@@ -614,6 +622,25 @@ const TableRow: React.FC<TableRowProps> = ({
                   const dd = String(now.getDate()).padStart(2, '0');
                   onUpdate(movimiento.id, 'fecha_efectiva', `${yyyy}-${mm}-${dd}`);
                 }
+                // Guardar inmediatamente usando función ligera (si ya tiene UUID)
+                try {
+                  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(movimiento.id);
+                  if (isUuid) {
+                    const fe = (value === 'Completado' && !movimiento.fecha_efectiva) ? (() => {
+                      const now = new Date();
+                      const yyyy = now.getFullYear();
+                      const mm = String(now.getMonth() + 1).padStart(2, '0');
+                      const dd = String(now.getDate()).padStart(2, '0');
+                      return `${yyyy}-${mm}-${dd}`;
+                    })() : (movimiento.fecha_efectiva || null);
+                    (async () => {
+                      const { supabase } = await import('@/lib/supabase');
+                      await supabase.functions.invoke('actualizar-estado-movimiento', { body: { id: movimiento.id, estado: value, fecha_efectiva: fe } });
+                    })();
+                  } else {
+                    (window as any).dispatchEvent(new CustomEvent('rr:commit-now', { detail: { id: movimiento.id } }));
+                  }
+                } catch {}
               }}
               options={[
                 { value: 'Pendiente', label: 'Pendiente' },
@@ -663,7 +690,7 @@ const TableRow: React.FC<TableRowProps> = ({
           <input
             type="checkbox"
             checked={movimiento.es_fiscal}
-            onChange={(e) => onUpdate(movimiento.id, 'es_fiscal', e.target.checked)}
+            onChange={(e) => { onUpdate(movimiento.id, 'es_fiscal', e.target.checked); onCommit(movimiento.id); }}
             className="w-3 h-3 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
           />
         </div>

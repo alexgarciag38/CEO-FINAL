@@ -1,11 +1,18 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
+
+const BodySchema = z.object({
+  id: z.string().uuid(),
+  estado: z.enum(['Pendiente','Completado','Cancelado']),
+  fecha_efectiva: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable()
+});
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -16,29 +23,27 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return new Response(JSON.stringify({ error: 'No autorizado' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    const { page = 1, pageSize = 20, filtros = {} } = await req.json().catch(() => ({}));
-    // Orden estable: primero por created_at DESC, luego por id DESC (evita saltos entre recargas)
-    let query = supabase
+    const body = await req.json().catch(() => ({}));
+    const parsed = BodySchema.safeParse(body);
+    if (!parsed.success) return new Response(JSON.stringify({ error: 'Validación', details: parsed.error.flatten() }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const { id, estado, fecha_efectiva } = parsed.data;
+
+    const updatePayload: any = { estado };
+    if (fecha_efectiva) updatePayload.fecha_efectiva = fecha_efectiva;
+
+    const { data, error } = await supabase
       .from('movimientos_financieros')
-      .select('*')
+      .update(updatePayload)
+      .eq('id', id)
       .eq('usuario_id', user.id)
-      // Orden natural requerida por UI: por columna NOTA asc numérica si existe; luego created_at DESC
-      .order('created_at', { ascending: true })
-      .order('id', { ascending: true });
-    if (filtros.tipo) query = query.eq('tipo', filtros.tipo);
-    if (filtros.estado) query = query.eq('estado', filtros.estado);
-    if (filtros.desde) query = query.gte('fecha_movimiento', filtros.desde);
-    if (filtros.hasta) query = query.lte('fecha_movimiento', filtros.hasta);
-    const { data, error } = await query.range((page - 1) * pageSize, page * pageSize - 1);
+      .select('id')
+      .single();
     if (error) throw error;
-    return new Response(JSON.stringify({ items: data ?? [] }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    return new Response(JSON.stringify({ success: true, id: data.id }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: 'Error interno', details: String(e?.message || e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
-
-
-
-
 
 

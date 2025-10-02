@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ColorChip from '@/components/ui/ColorChip';
 import { supabase } from '@/lib/supabase';
 import { 
   Download, 
@@ -27,6 +28,8 @@ interface Movimiento {
   categorias_financieras?: { nombre: string; color?: string };
   subcategorias_financieras?: { nombre: string; color?: string };
   proveedores?: { nombre: string };
+  metodo_categoria?: { nombre: string; color?: string };
+  metodo_subcategoria?: { nombre: string };
 }
 
 interface Categoria {
@@ -38,6 +41,10 @@ interface Categoria {
 export const HistorialMovimientos: React.FC = () => {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [metCatMap, setMetCatMap] = useState<Record<string, { nombre: string; color?: string }>>({});
+  const [metSubMap, setMetSubMap] = useState<Record<string, { nombre: string }>>({});
+  const [provMap, setProvMap] = useState<Record<string, string>>({});
+  const [cliMap, setCliMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
@@ -67,6 +74,29 @@ export const HistorialMovimientos: React.FC = () => {
 
   useEffect(() => {
     loadCategorias();
+    // Cargar métodos para fallback cuando no haya FK/relación
+    (async () => {
+      try {
+        const [{ data: mc }, { data: ms }, { data: pv }, { data: cl }] = await Promise.all([
+          supabase.from('metodos_pago_categorias').select('id,nombre,color'),
+          supabase.from('metodos_pago_subcategorias').select('id,nombre'),
+          supabase.from('proveedores').select('id,nombre'),
+          supabase.from('clientes').select('id,nombre')
+        ]);
+        const m1: Record<string, { nombre: string; color?: string }> = {};
+        const m2: Record<string, { nombre: string }> = {};
+        const p1: Record<string, string> = {};
+        const c1: Record<string, string> = {};
+        (mc || []).forEach((r: any) => { m1[r.id] = { nombre: r.nombre, color: r.color || undefined }; });
+        (ms || []).forEach((r: any) => { m2[r.id] = { nombre: r.nombre }; });
+        (pv || []).forEach((r: any) => { p1[r.id] = r.nombre; });
+        setMetCatMap(m1);
+        setMetSubMap(m2);
+        setProvMap(p1);
+        (cl || []).forEach((r: any) => { c1[r.id] = r.nombre; });
+        setCliMap(c1);
+      } catch {}
+    })();
   }, []);
 
   useEffect(() => {
@@ -106,11 +136,18 @@ export const HistorialMovimientos: React.FC = () => {
           regla_id,
           n_orden_ocurrencia,
           total_planeadas,
+          proveedor_cliente,
+          fecha_programada,
+          metodo_categoria_id,
+          metodo_subcategoria_id,
+          metodo_categoria:metodos_pago_categorias(nombre, color),
+          metodo_subcategoria:metodos_pago_subcategorias(nombre),
           categorias_financieras(nombre, color),
           subcategorias_financieras(nombre, color),
-          proveedores(nombre)
+          created_at
         `, { count: 'exact' })
-        .order('fecha_efectiva', { ascending: false });
+        .order('fecha_efectiva', { ascending: false })
+        .order('created_at', { ascending: false });
 
       // Aplicar filtros
       if (filtroTipo) query = query.eq('tipo', filtroTipo);
@@ -169,7 +206,9 @@ export const HistorialMovimientos: React.FC = () => {
           fecha_efectiva,
           categorias_financieras(nombre),
           subcategorias_financieras(nombre),
-          proveedores(nombre),
+          metodo_categoria:metodos_pago_categorias(nombre),
+          metodo_subcategoria:metodos_pago_subcategorias(nombre),
+          proveedor_cliente,
           forma_pago,
           fiscal,
           notas
@@ -197,6 +236,8 @@ export const HistorialMovimientos: React.FC = () => {
         'Monto',
         'Categoría',
         'Subcategoría',
+        'Método',
+        'Submétodo',
         'Forma de Pago',
         'Fiscal',
         'Proveedor',
@@ -210,9 +251,11 @@ export const HistorialMovimientos: React.FC = () => {
         mov.monto,
         mov.categorias_financieras?.nombre || '',
         mov.subcategorias_financieras?.nombre || '',
+        mov.metodo_categoria?.nombre || '',
+        mov.metodo_subcategoria?.nombre || '',
         mov.forma_pago,
         mov.fiscal ? 'Sí' : 'No',
-        mov.proveedores?.nombre || '',
+        mov.proveedor_cliente || '',
         mov.notas || ''
       ]) || [];
 
@@ -558,80 +601,89 @@ export const HistorialMovimientos: React.FC = () => {
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '1020px' }}>
+              <colgroup>
+                <col style={{ width: '50px' }} />
+                <col style={{ width: '50px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '90px' }} />
+                <col style={{ width: '70px' }} />
+                <col style={{ width: '70px' }} />
+                <col style={{ width: '180px' }} />
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '90px' }} />
+                <col style={{ width: '70px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '80px' }} />
+              </colgroup>
               <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subcategoría</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prov/Cliente</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Forma de Pago</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fiscal</th>
+                <tr className="border-b">
+                  <th className="px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">MODO</th>
+                  <th className="px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">TIPO</th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CATEGORÍA</th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SUBCAT.</th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PROV/CLIENTE</th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NOTA</th>
+                  <th className="px-1 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">MONTO</th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MÉTODO</th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">FECHA VENC.</th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DETALLES REC.</th>
+                  <th className="px-1 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ESTADO</th>
+                  <th className="px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">FISCAL</th>
+                  <th className="px-1 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">ACCIONES</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {movimientos.map((movimiento) => (
-                  <tr key={movimiento.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(movimiento.fecha_efectiva_pago).toLocaleDateString()}
+                {movimientos.map((m) => (
+                  <tr key={m.id} className="hover:bg-gray-50">
+                    <td className="px-1 py-2 text-center text-xs">{m.origen === 'recurrente' ? '🔄' : '⚡'}</td>
+                    <td className="px-1 py-2 text-center text-xs">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-medium ${getTipoColor(m.tipo)}`}>{m.tipo}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTipoColor(movimiento.tipo)}`}>
-                        {movimiento.tipo}
-                      </span>
+                    <td className="px-1 py-2 text-left text-xs">
+                      {m.categorias_financieras ? (
+                        <ColorChip label={m.categorias_financieras.nombre} colorHex={m.categorias_financieras.color || '#e5e7eb'} />
+                      ) : <span className="text-gray-400">-</span>}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                        {movimiento.origen === 'recurrente' ? (
-                          <span className="text-blue-500" title="Movimiento Recurrente">🔄</span>
-                        ) : (
-                          <span className="text-yellow-500" title="Movimiento Único">⚡</span>
-                        )}
-                        {movimiento.descripcion}
-                      </div>
-                      {movimiento.notas && (
-                        <div className="text-sm text-gray-500">{movimiento.notas}</div>
-                      )}
+                    <td className="px-1 py-2 text-left text-xs">
+                      {m.subcategorias_financieras ? (
+                        <ColorChip label={m.subcategorias_financieras.nombre} colorHex={m.subcategorias_financieras.color || '#e5e7eb'} />
+                      ) : <span className="text-gray-400">-</span>}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ${movimiento.monto.toLocaleString()}
+                    <td className="px-1 py-2 text-left text-xs truncate" title={(provMap[m.proveedor_cliente] || cliMap[m.proveedor_cliente] || m.proveedor_cliente || '') as string}>
+                      {provMap[m.proveedor_cliente] || cliMap[m.proveedor_cliente] || m.proveedor_cliente || ''}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        {movimiento.categorias_financieras?.color && (
-                          <div 
-                            className="w-3 h-3 rounded-full border-2 border-gray-300" 
-                            style={{ backgroundColor: movimiento.categorias_financieras.color }}
-                          />
-                        )}
-                        <span className="text-sm text-gray-900">{movimiento.categorias_financieras?.nombre}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {movimiento.subcategorias_financieras?.nombre || ''}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {movimiento.proveedores?.nombre || ''}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getFormaPagoColor(movimiento.forma_pago)}`}>
-                        {movimiento.forma_pago}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {movimiento.fiscal ? (
-                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          Sí
-                        </span>
+                    <td className="px-1 py-2 text-left text-xs truncate" title={m.descripcion}>{m.descripcion}</td>
+                    <td className="px-1 py-2 text-right text-xs">${Number(m.monto).toLocaleString()}</td>
+                    <td className="px-1 py-2 text-left text-xs">
+                      {m.metodo_categoria?.nombre || m.metodo_subcategoria?.nombre ? (
+                        <div className="flex items-center gap-1">
+                          {m.metodo_categoria?.nombre && (
+                            <ColorChip label={m.metodo_categoria.nombre} colorHex={m.metodo_categoria.color || '#e5e7eb'} />
+                          )}
+                          {m.metodo_subcategoria?.nombre && (
+                            <span className="px-2 py-1 rounded-md text-[10px] font-medium bg-gray-100 text-gray-700">
+                              {m.metodo_subcategoria.nombre}
+                            </span>
+                          )}
+                          {!m.metodo_categoria?.nombre && !m.metodo_subcategoria?.nombre && (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </div>
                       ) : (
-                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          No
-                        </span>
+                        m.forma_pago ? (
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-medium ${getFormaPagoColor(m.forma_pago)}`}>{m.forma_pago}</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )
                       )}
                     </td>
+                    <td className="px-1 py-2 text-left text-xs">{m.fecha_programada ? new Date(m.fecha_programada).toLocaleDateString() : '-'}</td>
+                    <td className="px-1 py-2 text-left text-xs">{m.origen === 'recurrente' && m.n_orden_ocurrencia && m.total_planeadas ? `${m.n_orden_ocurrencia}/${m.total_planeadas}` : ''}</td>
+                    <td className="px-1 py-2 text-left text-xs"><span className="px-2 py-1 rounded-full text-[10px] font-medium bg-green-100 text-green-800">Completado</span></td>
+                    <td className="px-1 py-2 text-center text-xs">{m.fiscal ? 'Sí' : 'No'}</td>
+                    <td className="px-1 py-2 text-center text-xs">{/* sin acciones en historial */}</td>
                   </tr>
                 ))}
               </tbody>
