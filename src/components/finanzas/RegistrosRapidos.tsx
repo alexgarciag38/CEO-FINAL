@@ -367,27 +367,49 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
         event.stopPropagation();
         // Intentar seleccionar vía ref del WorkingSelect en la celda activa
         const { row, col } = activeDropdown;
-        const lookupCol = (col as any) === 70 ? 7 : col;
-        const cellEl = cellRefs.current.get(getCellKey(row, lookupCol));
+        // Buscar el API de la celda acorde al dropdown activo exacto
+        const cellEl = cellRefs.current.get(getCellKey(row, (col as any) === 70 ? 7 : col));
         const api = cellEl ? (cellEl as any).workingSelect : null;
-        if (api && api.selectHighlighted) {
-          api.selectHighlighted();
-        } else {
-          // Fallback: Selección vía reducer
-          dispatch({ type: 'SELECT_DROPDOWN_OPTION' });
-        }
-        // Si estamos en Método (col 7), tras confirmar cerrar y abrir Submétodo con un ligero delay
-        if (activeDropdown.col === 7) {
-          // Asegurar cierre del dropdown actual antes de abrir el de Submétodo
-          dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
+        const isMetodoLike = col === 7 || (col as any) === 70;
+        const idx = state.highlightedDropdownOptionIndex;
+        if (isMetodoLike && idx < 0) {
+          // Pre-resaltar primera opción y seleccionar tras un micro-delay
+          // Para casos como EFECTIVO ya resaltado visualmente pero con índice -1, forzar índice 0
+          dispatch({ type: 'HIGHLIGHT_DROPDOWN_OPTION', payload: { direction: 'down', optionsCount: 1 } });
           setTimeout(() => {
-            const td = cellRefs.current.get(getCellKey(row, 7)) as any;
-            if (td && td.workingSelectSub) {
-              td.workingSelect = td.workingSelectSub;
+            if (api && api.selectHighlighted) {
+              api.selectHighlighted();
+            } else {
+              dispatch({ type: 'SELECT_DROPDOWN_OPTION' });
             }
-            dispatch({ type: 'TOGGLE_DROPDOWN', payload: { row, col: 70 as any } });
-          }, 50);
+          }, 40);
+        } else {
+          // Seleccionar directamente según el dropdown activo
+          if ((col as any) === 70) {
+            // Submétodo: llamar selectHighlighted del Submétodo exclusivamente
+            try {
+              const tdEl = cellRefs.current.get(getCellKey(row, 7));
+              const subApi = tdEl ? (tdEl as any).workingSelectSub : null;
+              if (subApi && subApi.selectHighlighted) {
+                subApi.selectHighlighted();
+              } else if (api && api.selectHighlighted) {
+                api.selectHighlighted();
+              } else {
+                dispatch({ type: 'SELECT_DROPDOWN_OPTION' });
+              }
+            } catch {
+              dispatch({ type: 'SELECT_DROPDOWN_OPTION' });
+            }
+          } else {
+            // Método
+            if (api && api.selectHighlighted) {
+              api.selectHighlighted();
+            } else {
+              dispatch({ type: 'SELECT_DROPDOWN_OPTION' });
+            }
+          }
         }
+        // Apertura de Submétodo se maneja en TableRow.onChange de Método para evitar doble toggle
         // Si estamos en Submétodo (col virtual 70), mover foco a la derecha tras confirmar
         if ((activeDropdown.col as any) === 70) {
           setTimeout(() => {
@@ -534,13 +556,16 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
           console.log('RegistrosRapidos - Enter en dropdown');
           event.preventDefault();
           event.stopPropagation();
-          // Abrir el dropdown de la celda enfocada (Método 7 o Submétodo 70 o demás)
-          if (state.activeDropdown) {
+          // Evitar TOGGLE redundante si ya está abierto para esta celda
+          const isDropdownActiveForThisCell = state.activeDropdown?.row === focusedCell.row && state.activeDropdown?.col === col;
+          if (state.activeDropdown && !isDropdownActiveForThisCell) {
             dispatch({ type: 'CLOSE_ACTIVE_DROPDOWN' });
-          }
-          setTimeout(() => {
+            setTimeout(() => {
+              dispatch({ type: 'TOGGLE_DROPDOWN', payload: { row: focusedCell.row, col } });
+            }, 0);
+          } else if (!isDropdownActiveForThisCell) {
             dispatch({ type: 'TOGGLE_DROPDOWN', payload: { row: focusedCell.row, col } });
-          }, 0);
+          }
           // Caso especial: col 8 (Detalles Rec.) usa popover propio
           if (col === 8) {
             setTimeout(() => {

@@ -206,10 +206,16 @@ const TableRow: React.FC<TableRowProps> = ({
   useEffect(() => {
     const td = metodoTdRef.current as any;
     if (!td) return;
-    if (state.activeDropdown && state.activeDropdown.row === rowIndex && state.activeDropdown.col === 7) {
-      td.workingSelect = movimiento.metodoCategoriaId ? metodoSubRef.current : metodoCatRef.current;
+    if (state.activeDropdown && state.activeDropdown.row === rowIndex) {
+      if (state.activeDropdown.col === 7) {
+        // Si el dropdown activo es el de Método, seleccionar el WorkingSelect de Método
+        td.workingSelect = metodoCatRef.current;
+      } else if ((state.activeDropdown.col as any) === 70) {
+        // Si el dropdown activo es el de Submétodo, seleccionar el WorkingSelect de Submétodo
+        td.workingSelect = metodoSubRef.current;
+      }
     }
-  }, [state.activeDropdown, movimiento.metodoCategoriaId, rowIndex]);
+  }, [state.activeDropdown, rowIndex]);
 
   const isMetodoDropdownActive = !!state.activeDropdown && state.activeDropdown.row === rowIndex && state.activeDropdown.col === 7;
 
@@ -243,6 +249,8 @@ const TableRow: React.FC<TableRowProps> = ({
       }
     }
   }, [state.isEditing, state.editMode, state.focusedCell?.row, state.focusedCell?.col, rowIndex]);
+
+  // Apertura de Submétodo se maneja en el manejador global tras seleccionar Método
 
 
   const recurrenceConfig = {
@@ -438,7 +446,8 @@ const TableRow: React.FC<TableRowProps> = ({
         onClick={() => {
           const td = metodoTdRef.current as any;
           if (td) td.workingSelect = metodoCatRef.current;
-          handleDropdownCellClick(7);
+          // Solo establecer foco; el WorkingSelect interno gestionará el TOGGLE
+          dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 7 } });
         }}
           ref={(el) => {
           registerCellRef(rowIndex, 7, el);
@@ -448,9 +457,16 @@ const TableRow: React.FC<TableRowProps> = ({
             (el as any).workingSelectSub = metodoSubRef.current;
             (el as any).workingSelect = {
               selectHighlighted: () => {
-                // Intenta seleccionar en ambos; solo el que esté abierto actuará
-                try { metodoSubRef.current?.selectHighlighted(); } catch {}
-                try { metodoCatRef.current?.selectHighlighted(); } catch {}
+                // Seleccionar únicamente en el dropdown ACTIVO (7 = Método, 70 = Submétodo)
+                try {
+                  const ad = state.activeDropdown;
+                  if (!ad || ad.row !== rowIndex) return;
+                  if (ad.col === 7) {
+                    metodoCatRef.current?.selectHighlighted();
+                  } else if ((ad.col as any) === 70) {
+                    metodoSubRef.current?.selectHighlighted();
+                  }
+                } catch {}
               }
             };
           }
@@ -465,11 +481,26 @@ const TableRow: React.FC<TableRowProps> = ({
               onChange={(value) => {
                 onUpdate(movimiento.id, 'metodoCategoriaId', value);
                 onUpdate(movimiento.id, 'metodoSubcategoriaId', '');
-                // Abrir el dropdown de Submétodo (col virtual 70)
+                // Abrir Submétodo con reintento corto para esperar ref+options listas
                 setTimeout(() => {
-                  const td = metodoTdRef.current as any;
-                  if (td) td.workingSelect = metodoSubRef.current;
-                  dispatch({ type: 'TOGGLE_DROPDOWN', payload: { row: rowIndex, col: 70 as any } });
+                  let attempts = 0;
+                  const tryOpen = () => {
+                    attempts += 1;
+                    try {
+                      if (metodoSubRef.current) {
+                        metodoSubRef.current.openDropdown();
+                        return;
+                      }
+                    } catch (e) {
+                      console.error(`Error en intento ${attempts} de abrir Submétodo desde TableRow:`, e);
+                    }
+                    if (attempts < 4) {
+                      setTimeout(tryOpen, 16);
+                    } else {
+                      console.warn('Falló la apertura de Submétodo después de 4 intentos.');
+                    }
+                  };
+                  tryOpen();
                 }, 0);
                 setTimeout(() => onSaveRow(movimiento.id), 0);
               }}
@@ -481,9 +512,8 @@ const TableRow: React.FC<TableRowProps> = ({
           </div>
           <div className="flex-1"
             onClick={(e) => { 
+              // Evitar burbuja al td; el botón del WorkingSelect maneja TOGGLE
               e.stopPropagation();
-              // Abrir explícitamente el dropdown de Submétodo (col virtual 70)
-              dispatch({ type: 'TOGGLE_DROPDOWN', payload: { row: rowIndex, col: 70 as any } });
             }}
             ref={(el) => {
               // Nada: el workingSelect de la celda (td) se gestiona via metodoTdRef
@@ -501,7 +531,7 @@ const TableRow: React.FC<TableRowProps> = ({
               }))}
               placeholder="Submétodo"
               className="w-full"
-              disabled={!movimiento.metodoCategoriaId}
+              disabled={metodoSubsFiltradas.length === 0}
               cellCoordinates={{ row: rowIndex, col: 70 as any }}
             />
           </div>
@@ -622,25 +652,9 @@ const TableRow: React.FC<TableRowProps> = ({
                   const dd = String(now.getDate()).padStart(2, '0');
                   onUpdate(movimiento.id, 'fecha_efectiva', `${yyyy}-${mm}-${dd}`);
                 }
-                // Guardar inmediatamente usando función ligera (si ya tiene UUID)
-                try {
-                  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(movimiento.id);
-                  if (isUuid) {
-                    const fe = (value === 'Completado' && !movimiento.fecha_efectiva) ? (() => {
-                      const now = new Date();
-                      const yyyy = now.getFullYear();
-                      const mm = String(now.getMonth() + 1).padStart(2, '0');
-                      const dd = String(now.getDate()).padStart(2, '0');
-                      return `${yyyy}-${mm}-${dd}`;
-                    })() : (movimiento.fecha_efectiva || null);
-                    (async () => {
-                      const { supabase } = await import('@/lib/supabase');
-                      await supabase.functions.invoke('actualizar-estado-movimiento', { body: { id: movimiento.id, estado: value, fecha_efectiva: fe } });
-                    })();
-                  } else {
-                    (window as any).dispatchEvent(new CustomEvent('rr:commit-now', { detail: { id: movimiento.id } }));
-                  }
-                } catch {}
+                // Unificar guardado: usar el auto-guardado estándar de la fila
+                // Pequeño delay para asegurar que el estado local se haya aplicado antes de leer la fila
+                setTimeout(() => onSaveRow(movimiento.id), 60);
               }}
               options={[
                 { value: 'Pendiente', label: 'Pendiente' },

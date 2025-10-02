@@ -124,6 +124,13 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
       if (!disabled && cellCoordinates) {
         // CRÍTICO: Usar el contexto para abrir el dropdown
         dispatch({ type: 'TOGGLE_DROPDOWN', payload: cellCoordinates });
+        // Forzar pre-highlight de la primera opción en el próximo micro-tick
+        setTimeout(() => {
+          const count = options?.length ?? 0;
+          if (count > 0) {
+            dispatch({ type: 'HIGHLIGHT_DROPDOWN_OPTION', payload: { direction: 'down', optionsCount: count } });
+          }
+        }, 0);
       }
     },
     
@@ -134,7 +141,11 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
     selectHighlighted: () => {
       // Seleccionar la opción resaltada actual
       if (!open) return;
-      const idx = state.highlightedDropdownOptionIndex;
+      let idx = state.highlightedDropdownOptionIndex;
+      if (idx < 0 && options.length > 0) {
+        // Fallback robusto: si nada está resaltado, usar la primera opción
+        idx = 0;
+      }
       if (idx >= 0 && idx < options.length) {
         const option = options[idx];
         if (!option.disabled) handleOptionClick(option);
@@ -169,10 +180,14 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
       if (state.highlightedDropdownOptionIndex !== highlightedIndex) {
         setHighlightedIndex(state.highlightedDropdownOptionIndex);
       }
+      // Si no hay opción resaltada, pre-resaltar la primera
+      if (state.highlightedDropdownOptionIndex < 0 && options.length > 0) {
+        dispatch({ type: 'HIGHLIGHT_DROPDOWN_OPTION', payload: { direction: 'down', optionsCount: options.length } });
+      }
     } else if (!open) {
       setHighlightedIndex(-1);
     }
-  }, [open, cellCoordinates, state.highlightedDropdownOptionIndex]);
+  }, [open, cellCoordinates, state.highlightedDropdownOptionIndex, options.length, dispatch]);
 
   // CRÍTICO: Sincronizar el estado del dropdown con el contexto global
   useEffect(() => {
@@ -234,6 +249,12 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
     const isFocused = document.activeElement === buttonRef.current;
     if (!isFocused) return;
 
+    // Si hay un dropdown activo de OTRA celda, no interferir
+    // Evita que el botón de Método maneje Enter cuando está abierto Submétodo (col 70)
+    if (state.activeDropdown && !isActiveDropdown) {
+      return; // Dejar que el orquestador global maneje la tecla
+    }
+
     // Solo procesar teclas relevantes
     const relevantKeys = ['Enter', ' ', 'ArrowDown', 'ArrowUp', 'Escape'];
     if (!relevantKeys.includes(event.key)) return;
@@ -246,12 +267,11 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
         event.stopPropagation();
         if (open) {
           console.log('WorkingSelect - Enter/Space pressed locally - DROPDOWN OPEN');
-          if (state.highlightedDropdownOptionIndex >= 0 && state.highlightedDropdownOptionIndex < options.length) {
-            const option = options[state.highlightedDropdownOptionIndex];
+          const idx = state.highlightedDropdownOptionIndex < 0 ? 0 : state.highlightedDropdownOptionIndex;
+          if (idx >= 0 && idx < options.length) {
+            const option = options[idx];
             console.log('WorkingSelect - Selecting option from local handler:', option);
-            if (!option.disabled) {
-              handleOptionClick(option);
-            }
+            if (!option.disabled) { handleOptionClick(option); }
           }
         } else {
           // Abrir si está cerrado
@@ -333,16 +353,16 @@ const WorkingSelect = forwardRef<WorkingSelectRef, WorkingSelectProps>(({
         type="button"
         id={id}
         disabled={disabled}
-        onClick={() => {
-          console.log('WorkingSelect - Button clicked (COMPORTAMIENTO EXCEL - SOLO SELECCIÓN)');
-          
-          // CRÍTICO: NO prevenir ni detener la propagación para permitir que la celda maneje el clic
-          // El botón solo debe mantener el foco visual, la celda manejará la lógica
-          
-          // Solo asegurar que el botón mantenga el foco para la selección visual
-          setTimeout(() => {
-            buttonRef.current?.focus();
-          }, 0);
+        onClick={(e) => {
+          console.log('WorkingSelect - Button clicked (CONTROL LOCAL)');
+          e.preventDefault();
+          e.stopPropagation();
+          // Mantener foco visual
+          setTimeout(() => { buttonRef.current?.focus(); }, 0);
+          // Delegar apertura/cierre al estado global únicamente desde aquí
+          if (!disabled && cellCoordinates) {
+            dispatch({ type: 'TOGGLE_DROPDOWN', payload: cellCoordinates });
+          }
         }}
         onKeyDown={handleKeyDown}
         className={`

@@ -13,6 +13,8 @@ import { ABCAdvancedPanel } from '@/components/sales/ABCAdvancedPanel';
 import { supabase } from '@/lib/supabase';
 import { useSalesAnalysis } from '@/hooks/useSalesAnalysis';
 import { useSalesComparison } from '@/hooks/useSalesComparison';
+import { useVentasNavigation } from '@/hooks/useVentasNavigation';
+import { MonthSelector } from '@/components/sales/MonthSelector';
 import { generateSalesTeamPerformance, generateProductCatalog } from '@/data/salesData';
 import {
   TrendingUp,
@@ -72,11 +74,30 @@ export const VentasPage: React.FC = () => {
   const [processedData, setProcessedData] = useState<any>(null);
   const [showSaveButton, setShowSaveButton] = useState(false);
 
-  // Ahora sí: preferir datos recién procesados del servidor
-  const analisisData = useSalesAnalysis(processedData || rawData);
-  
+  // Form state for CSV upload
+  const [formData, setFormData] = useState({
+    mes: '',
+    anio: '',
+    cobranza: null as File | null,
+    pedidos: null as File | null,
+    productos: null as File | null
+  });
+
+  // Hook para navegación entre meses
+  const { 
+    mesesDisponibles, 
+    mesActual, 
+    datosMesActual, 
+    loading: navigationLoading, 
+    error: navigationError,
+    cambiarAMes 
+  } = useVentasNavigation();
+
   // Hook para comparaciones
   const { comparisonData, isLoading: comparisonLoading, error: comparisonError, fetchComparison } = useSalesComparison();
+  
+  // Ahora sí: preferir datos recién procesados del servidor, luego datos de navegación, luego datos raw
+  const analisisData = useSalesAnalysis(processedData || datosMesActual || rawData);
   
   // Debug: Ver qué datos tenemos
   console.log('Raw data:', rawData);
@@ -87,15 +108,6 @@ export const VentasPage: React.FC = () => {
     console.log('Primer producto del backend:', rawData.catalogoProductos[0]);
     console.log('Estructura de productos:', rawData.catalogoProductos.slice(0, 3));
   }
-  
-  // Form state for CSV upload
-  const [formData, setFormData] = useState({
-    mes: '',
-    anio: '',
-    cobranza: null as File | null,
-    pedidos: null as File | null,
-    productos: null as File | null
-  });
 
   // Removed legacy mock variables not used in the new layout
 
@@ -119,44 +131,47 @@ export const VentasPage: React.FC = () => {
     { id: 'upload', label: 'Cargar Datos', icon: Upload }
   ];
 
-  // Load latest analysis data on component mount
+  // Load latest analysis data on component mount (solo si no hay datos de navegación)
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const { data, error } = await supabase
-          .from('ventas_historico')
-          .select('datos, mes, anio, fecha_carga')
-          .order('fecha_carga', { ascending: false })
-          .limit(1)
-          .single();
+      // Solo cargar datos legacy si no hay datos de navegación disponibles
+      if (!datosMesActual && (!mesesDisponibles || mesesDisponibles.length === 0)) {
+        setLoading(true);
+        setError(null);
+        try {
+          const { data, error } = await supabase
+            .from('ventas_historico')
+            .select('datos, mes, anio, fecha_carga')
+            .order('fecha_carga', { ascending: false })
+            .limit(1)
+            .single();
 
-        if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-          throw error;
-        }
+          if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+            throw error;
+          }
 
-        if (data) {
-          console.log('Datos cargados del backend:', data.datos);
-          setRawData(data.datos);
-          setCurrentPeriod({ mes: data.mes, anio: data.anio });
-          
-          // Guardar en localStorage para persistencia
-          localStorage.setItem('ventas_current_period', JSON.stringify({
-            mes: data.mes,
-            anio: data.anio,
-            fecha_carga: data.fecha_carga
-          }));
+          if (data) {
+            console.log('Datos cargados del backend:', data.datos);
+            setRawData(data.datos);
+            setCurrentPeriod({ mes: data.mes, anio: data.anio });
+            
+            // Guardar en localStorage para persistencia
+            localStorage.setItem('ventas_current_period', JSON.stringify({
+              mes: data.mes,
+              anio: data.anio,
+              fecha_carga: data.fecha_carga
+            }));
+          }
+        } catch (err: any) {
+          setError(err.message || 'Error al cargar los datos.');
+          console.error('Error loading analysis:', err);
+        } finally {
+          setLoading(false);
         }
-      } catch (err: any) {
-        setError(err.message || 'Error al cargar los datos.');
-        console.error('Error loading analysis:', err);
-      } finally {
-        setLoading(false);
       }
     };
     loadData();
-  }, []);
+  }, [datosMesActual, mesesDisponibles]);
 
   //
 
@@ -1304,7 +1319,7 @@ export const VentasPage: React.FC = () => {
   };
 
   // Renderizado condicional para estados de carga y error
-  if (loading) {
+  if (loading || navigationLoading) {
     return (
       <PageWrapper
         title="Módulo de Ventas"
@@ -1324,7 +1339,7 @@ export const VentasPage: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (error || navigationError) {
     return (
       <PageWrapper
         title="Módulo de Ventas"
@@ -1338,7 +1353,7 @@ export const VentasPage: React.FC = () => {
           <div className="text-center">
             <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Error al cargar datos</h3>
-            <p className="text-gray-600">{error}</p>
+            <p className="text-gray-600">{error || navigationError}</p>
             <button
               onClick={() => window.location.reload()}
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
@@ -1366,7 +1381,9 @@ export const VentasPage: React.FC = () => {
             <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No hay datos disponibles</h3>
             <p className="text-gray-600 mb-4">
-              {currentPeriod 
+              {mesActual 
+                ? `Último análisis: ${mesActual.label}`
+                : currentPeriod 
                 ? `Último análisis: ${getNombreMes(currentPeriod.mes)} ${currentPeriod.anio}`
                 : 'No hay datos de análisis para mostrar.'
               }
@@ -1393,13 +1410,13 @@ export const VentasPage: React.FC = () => {
       ]}
       actions={
         <div className="flex items-center space-x-3">
-          {/* Indicador del período actual */}
-          {currentPeriod && (
-            <div className="flex items-center px-3 py-2 bg-green-100 text-green-800 rounded-md text-sm font-medium">
-              <Calendar className="w-4 h-4 mr-2" />
-              {getNombreMes(currentPeriod.mes)} {currentPeriod.anio}
-            </div>
-          )}
+          {/* Selector de meses con dropdown */}
+          <MonthSelector
+            mesesDisponibles={mesesDisponibles}
+            mesActual={mesActual}
+            onMonthChange={cambiarAMes}
+            loading={navigationLoading}
+          />
           
           <select
             value={selectedPeriod}

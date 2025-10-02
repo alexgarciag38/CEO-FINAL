@@ -1,301 +1,183 @@
-# CEO Final - Dashboard Ejecutivo Empresarial
+# Supabase CLI
 
-![CEO Final Logo](https://img.shields.io/badge/CEO%20Final-Dashboard%20Ejecutivo-blue?style=for-the-badge)
-![Version](https://img.shields.io/badge/version-1.0.0-green?style=for-the-badge)
-![Status](https://img.shields.io/badge/status-Production%20Ready-success?style=for-the-badge)
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
+](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
 
-## 🚀 Aplicación Desplegada
+[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
-**URL de Producción**: [https://tyqsfenp.manus.space](https://tyqsfenp.manus.space)
+This repository contains all the functionality for Supabase CLI.
 
-**Credenciales de Demo**:
-- Email: `admin@ceofinal.com`
-- Contraseña: `password123`
+- [x] Running Supabase locally
+- [x] Managing database migrations
+- [x] Creating and deploying Supabase Functions
+- [x] Generating types directly from your database schema
+- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
 
-## 📋 Descripción
+## Getting started
 
-CEO Final es un dashboard ejecutivo empresarial completo desarrollado con React y TypeScript, diseñado para proporcionar análisis integral de métricas empresariales, visualizaciones interactivas y herramientas de inteligencia de negocio.
+### Install the CLI
 
-### ✨ Características Principales
+Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
-- **Dashboard Ejecutivo**: Métricas KPI en tiempo real con visualizaciones interactivas
-- **Módulo de Ventas**: Análisis ABC, simulador de ventas y gestión de productos
-- **Módulo Financiero**: Estados financieros, ratios y análisis de flujo de caja
-- **Módulo Marketing**: Gestión de campañas, análisis de ROI y embudo de conversión
-- **Módulo CRM**: Gestión de clientes, leads y pipeline de ventas
-- **Módulo RRHH**: Gestión de empleados, reclutamiento y nóminas
-- **Módulo Estratégico**: Objetivos, iniciativas y análisis de riesgos
-- **Procesamiento CSV**: Carga y validación segura de datos empresariales
-- **Asistente IA**: Chatbot inteligente para análisis de datos y recomendaciones
-- **Autenticación Segura**: Sistema robusto con rate limiting y 2FA
-
-## 🏗️ Arquitectura Técnica
-
-### Frontend
-- **React 18** con TypeScript
-- **Vite** para build y desarrollo
-- **TailwindCSS** para estilos
-- **Recharts** para visualizaciones
-- **React Router** para navegación
-- **Zod** para validación de datos
-- **React Hook Form** para formularios
-
-### Backend
-- **Supabase** como BaaS (Backend as a Service)
-- **PostgreSQL** con Row Level Security (RLS)
-- **Edge Functions** para lógica de negocio
-- **Autenticación JWT** integrada
-
-### Seguridad
-- Validación doble (frontend/backend)
-- Sanitización automática de datos
-- Protección XSS y CSRF
-- Rate limiting en autenticación
-- Detección de contenido malicioso
-
-## 📊 Módulos Implementados
-
-### 1. Dashboard Ejecutivo
-- 6 KPIs principales con tendencias
-- 4 métricas financieras adicionales
-- Gráficas interactivas (línea, pie, barras, área)
-- Actividad reciente en tiempo real
-- Top productos con análisis de rendimiento
-
-### 2. Módulo de Ventas
-- **Resumen**: KPIs de ventas y tendencias
-- **Análisis ABC**: Clasificación automática de productos (74.1% A, 18.9% B, 7.0% C)
-- **Simulador**: Proyecciones con 7 variables ajustables
-- **Productos**: Catálogo con métricas de rendimiento
-- **Equipo**: Rendimiento individual de vendedores
-
-### 3. Módulo Financiero
-- **P&L**: Estado de pérdidas y ganancias
-- **Balance**: Balance general con activos/pasivos
-- **Flujo de Caja**: Análisis de liquidez mensual
-- **Ratios**: Indicadores de rentabilidad y eficiencia
-- **Presupuesto**: Comparación presupuesto vs real
-
-### 4. Módulo Marketing
-- **Campañas**: Gestión de 6 tipos de campañas
-- **Canales**: Análisis de ROI por canal
-- **Embudo**: Customer journey completo
-- **Audiencia**: Segmentación de 4 grupos
-- **Competencia**: Análisis comparativo
-
-### 5. Módulo CRM
-- Gestión completa de clientes y leads
-- Pipeline de ventas con etapas
-- Análisis de oportunidades
-- Seguimiento de interacciones
-
-### 6. Módulo RRHH
-- Gestión de 127 empleados
-- Reclutamiento y onboarding
-- Evaluaciones de rendimiento
-- Gestión de nóminas y beneficios
-
-### 7. Módulo Estratégico
-- Objetivos estratégicos (73.5% cumplidos)
-- Iniciativas y proyectos
-- Análisis de riesgos (crítico/alto/medio/bajo)
-- Análisis de mercado (15.2% cuota)
-
-## 🔒 Seguridad Implementada
-
-### Autenticación y Autorización
-- Sistema Supabase Auth con JWT tokens
-- Row Level Security (RLS) en base de datos
-- Rate limiting (5 intentos, 15 min lockout)
-- Sesiones configurables (15-480 minutos)
-
-### Validación de Datos
-- Esquemas Zod para validación estricta
-- Sanitización automática de entrada
-- Detección de contenido malicioso
-- Límites de tamaño de archivo (25MB)
-
-### Protección de Archivos CSV
-- Validación de tipos (.csv, .xlsx, .xls)
-- Escaneo de amenazas de seguridad
-- Limpieza automática de datos
-- Vista previa segura de contenido
-
-## 🤖 Asistente de IA
-
-El chatbot integrado proporciona:
-- Análisis contextual de métricas empresariales
-- Recomendaciones estratégicas basadas en datos
-- Interpretación de gráficas y tendencias
-- Ayuda con procesamiento de CSV
-- Respuestas inteligentes por módulo
-
-**Ejemplos de consultas**:
-- "Analizar ventas del mes"
-- "Revisar métricas de marketing"
-- "Estado financiero actual"
-- "Recomendaciones estratégicas"
-
-## 🚀 Instalación y Desarrollo
-
-### Prerrequisitos
-- Node.js 18+
-- pnpm (recomendado) o npm
-- Cuenta de Supabase
-
-### Configuración Local
-
-1. **Clonar el repositorio**
 ```bash
-git clone <repository-url>
-cd ceo-final
+npm i supabase --save-dev
 ```
 
-2. **Instalar dependencias**
+To install the beta release channel:
+
 ```bash
-pnpm install
+npm i supabase@beta --save-dev
 ```
 
-3. **Configurar variables de entorno**
+When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
+
+```
+NODE_OPTIONS=--no-experimental-fetch yarn add supabase
+```
+
+> **Note**
+For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
+
+<details>
+  <summary><b>macOS</b></summary>
+
+  Available via [Homebrew](https://brew.sh). To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To install the beta release channel:
+  
+  ```sh
+  brew install supabase/tap/supabase-beta
+  brew link --overwrite supabase-beta
+  ```
+  
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Windows</b></summary>
+
+  Available via [Scoop](https://scoop.sh). To install:
+
+  ```powershell
+  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+  scoop install supabase
+  ```
+
+  To upgrade:
+
+  ```powershell
+  scoop update supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Linux</b></summary>
+
+  Available via [Homebrew](https://brew.sh) and Linux packages.
+
+  #### via Homebrew
+
+  To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+
+  #### via Linux packages
+
+  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
+
+  ```sh
+  sudo apk add --allow-untrusted <...>.apk
+  ```
+
+  ```sh
+  sudo dpkg -i <...>.deb
+  ```
+
+  ```sh
+  sudo rpm -i <...>.rpm
+  ```
+
+  ```sh
+  sudo pacman -U <...>.pkg.tar.zst
+  ```
+</details>
+
+<details>
+  <summary><b>Other Platforms</b></summary>
+
+  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
+
+  ```sh
+  go install github.com/supabase/cli@latest
+  ```
+
+  Add a symlink to the binary in `$PATH` for easier access:
+
+  ```sh
+  ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
+  ```
+
+  This works on other non-standard Linux distros.
+</details>
+
+<details>
+  <summary><b>Community Maintained Packages</b></summary>
+
+  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+  To install in your working directory:
+
+  ```bash
+  pkgx install supabase
+  ```
+
+  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
+</details>
+
+### Run the CLI
+
 ```bash
-cp .env.example .env
-# Editar .env con tus credenciales de Supabase
+supabase bootstrap
 ```
 
-4. **Iniciar desarrollo**
+Or using npx:
+
 ```bash
-pnpm run dev
+npx supabase bootstrap
 ```
 
-5. **Construir para producción**
-```bash
-pnpm run build
+The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
+
+## Docs
+
+Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
+
+## Breaking changes
+
+We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
+
+However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
+
+## Developing
+
+To run from source:
+
+```sh
+# Go >= 1.22
+go run . help
 ```
-
-### Variables de Entorno Requeridas
-
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_APP_ENV=development
-```
-
-## 📁 Estructura del Proyecto
-
-```
-ceo-final/
-├── src/
-│   ├── components/          # Componentes reutilizables
-│   │   ├── ai/             # Chatbot y asistente IA
-│   │   ├── charts/         # Componentes de gráficas
-│   │   ├── csv/            # Procesamiento de CSV
-│   │   ├── layout/         # Layout y navegación
-│   │   ├── sales/          # Componentes de ventas
-│   │   └── ui/             # Componentes UI base
-│   ├── contexts/           # Contextos de React
-│   ├── data/              # Datos mock y tipos
-│   ├── lib/               # Configuración de librerías
-│   ├── pages/             # Páginas de la aplicación
-│   │   ├── auth/          # Autenticación
-│   │   ├── dashboard/     # Dashboard principal
-│   │   ├── ventas/        # Módulo de ventas
-│   │   ├── financiero/    # Módulo financiero
-│   │   ├── marketing/     # Módulo marketing
-│   │   ├── crm/           # Módulo CRM
-│   │   ├── rrhh/          # Módulo RRHH
-│   │   ├── estrategico/   # Módulo estratégico
-│   │   └── settings/      # Configuración
-│   ├── routes/            # Configuración de rutas
-│   ├── types/             # Definiciones TypeScript
-│   └── utils/             # Utilidades y validación
-├── backend/               # Configuración Supabase
-│   ├── database-schema.sql
-│   └── functions/         # Edge Functions
-├── public/                # Archivos estáticos
-├── SECURITY.md           # Documentación de seguridad
-└── README.md             # Este archivo
-```
-
-## 🧪 Testing y Calidad
-
-### Auditoría de Seguridad
-- ✅ 2 vulnerabilidades de severidad baja (aceptable)
-- ✅ Validación de entrada implementada
-- ✅ Protección XSS y CSRF activa
-- ✅ Autenticación y autorización robusta
-
-### Build de Producción
-- ✅ Bundle optimizado (1.1MB gzipped: 302.91KB)
-- ✅ TypeScript compilation exitosa
-- ✅ Todas las dependencias resueltas
-- ✅ Assets optimizados
-
-### Testing Funcional
-- ✅ Todos los módulos funcionando
-- ✅ Navegación entre páginas
-- ✅ Autenticación en producción
-- ✅ Gráficas y visualizaciones
-- ✅ Chatbot IA operativo
-- ✅ Procesamiento CSV funcional
-
-## 📈 Métricas de Rendimiento
-
-### Datos de Ejemplo Incluidos
-- **12 productos** con análisis ABC
-- **127 empleados** con métricas de RRHH
-- **6 campañas** de marketing activas
-- **5 vendedores** con objetivos y rendimiento
-- **Transacciones** de los últimos 6 meses
-- **Estados financieros** completos
-
-### KPIs Principales
-- Ingresos: €1.268.000 (+12.5%)
-- Órdenes: 2,847 (+8.3%)
-- Clientes activos: 1,890 (+15.7%)
-- Satisfacción: 4.6/5 (+0.3)
-- ROE: 22.3%
-- Cuota de mercado: 15.2%
-
-## 🔧 Configuración Avanzada
-
-### Personalización de Temas
-El sistema utiliza TailwindCSS con paleta corporativa:
-- Primario: Azul (#3B82F6)
-- Secundario: Gris (#6B7280)
-- Éxito: Verde (#10B981)
-- Advertencia: Amarillo (#F59E0B)
-- Error: Rojo (#EF4444)
-
-### Configuración de Supabase
-1. Crear proyecto en Supabase
-2. Ejecutar `database-schema.sql`
-3. Configurar RLS policies
-4. Desplegar Edge Functions
-5. Configurar autenticación
-
-## 📞 Soporte y Contacto
-
-### Reportar Issues
-- **Seguridad**: security@ceofinal.com
-- **Bugs**: Crear issue en el repositorio
-- **Features**: Solicitudes de mejora
-
-### Documentación Adicional
-- [SECURITY.md](./SECURITY.md) - Documentación de seguridad
-- [Backend Schema](./backend/database-schema.sql) - Esquema de base de datos
-- [Edge Functions](./backend/functions/) - Funciones serverless
-
-## 📄 Licencia
-
-Este proyecto está bajo licencia MIT. Ver archivo LICENSE para más detalles.
-
-## 🙏 Agradecimientos
-
-Desarrollado con las mejores prácticas de seguridad, arquitectura limpia y experiencia de usuario optimizada para ejecutivos y tomadores de decisiones empresariales.
-
----
-
-**CEO Final Dashboard** - Transformando datos en decisiones estratégicas.
-
-*Última actualización: Agosto 2025*
-
