@@ -4,6 +4,7 @@ import WorkingSelect, { WorkingSelectRef } from '@/components/ui/WorkingSelect';
 import SmartDateInput, { SmartDateInputRef } from '@/components/ui/SmartDateInput';
 import RecurrencePickerPopover, { RecurrencePickerPopoverRef } from './RecurrencePickerPopover';
 import { LightningIcon, RefreshIcon, LetterIIcon, LetterEIcon, TrashIcon } from '@/components/ui/ProfessionalIcons';
+import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useTableContext } from './TableContext';
 import { adjustColorForSubentity, isValidHexColor } from '@/lib/colorUtils';
 
@@ -264,6 +265,40 @@ const TableRow: React.FC<TableRowProps> = ({
                  movimiento.numero_repeticiones ? 'repeticiones' : 'indefinido') as 'fecha' | 'repeticiones' | 'indefinido'
   };
 
+  // Función para renderizar el icono de estado de guardado
+  const renderSaveStatusIcon = () => {
+    // Forzar valores por defecto si no existen
+    const isDirty = movimiento.isDirty ?? false;
+    const saveStatus = movimiento.saveStatus ?? 'idle';
+    
+    console.log('renderSaveStatusIcon - isDirty:', isDirty, 'saveStatus:', saveStatus, 'original isDirty:', movimiento.isDirty, 'original saveStatus:', movimiento.saveStatus);
+    
+    // Mostrar icono de guardando cuando hay cambios pendientes o está guardando
+    if (isDirty === true || saveStatus === 'saving') {
+      return <Loader2 className="w-4 h-4 text-blue-500 animate-spin mr-1" />;
+    }
+    
+    // Mostrar icono de guardado exitoso cuando está guardado y no hay cambios pendientes
+    if (saveStatus === 'saved' && isDirty === false) {
+      return <CheckCircle className="w-4 h-4 text-green-500 mr-1" />;
+    }
+    
+    // Mostrar icono de error cuando hay un error de guardado
+    if (saveStatus === 'error') {
+      return <AlertCircle className="w-4 h-4 text-red-500 mr-1" />;
+    }
+    
+    // Si no hay cambios pendientes (isDirty = false) y no está en proceso de guardado, mostrar check verde
+    // Esto cubre el caso donde el movimiento está guardado pero saveStatus no está explícitamente en 'saved'
+    if (isDirty === false && saveStatus === 'saved') {
+      return <CheckCircle className="w-4 h-4 text-green-500 mr-1" />;
+    }
+    
+    // Fallback: mostrar un indicador genérico si no se reconoce el estado
+    return <div className="w-4 h-4 bg-yellow-300 rounded-full mr-1" title={`Unknown state - isDirty: ${isDirty}, saveStatus: ${saveStatus}`}></div>;
+  };
+
+
   return (
     <tr className="hover:bg-gray-50 transition-colors" data-row={rowIndex}>
       {/* COLUMNA 1: MODO */}
@@ -396,9 +431,6 @@ const TableRow: React.FC<TableRowProps> = ({
         ) : (
           <div className="w-full px-1 py-1 text-xs truncate" title={movimiento.descripcion}>
             {movimiento.descripcion || <span className="text-gray-400">NOTA</span>}
-            {movimiento.saveStatus === 'saving' && <span className="ml-2 text-[10px] text-blue-500">Guardando…</span>}
-            {movimiento.saveStatus === 'saved' && movimiento.isDirty !== true && <span className="ml-2 text-[10px] text-green-600">Guardado</span>}
-            {movimiento.saveStatus === 'error' && <span className="ml-2 text-[10px] text-red-600" title={movimiento.lastError || ''}>Error</span>}
           </div>
         )}
       </td>
@@ -716,7 +748,8 @@ const TableRow: React.FC<TableRowProps> = ({
         onClick={() => dispatch({ type: 'SET_FOCUS', payload: { row: rowIndex, col: 12 } })}
         ref={(el) => registerCellRef(rowIndex, 12, el)}
       >
-        <div className="flex justify-center space-x-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-center items-center space-x-1" onClick={(e) => e.stopPropagation()}>
+          {renderSaveStatusIcon()}
           <button
             onClick={() => {
               const ev = new CustomEvent('rr-confirm-delete', { detail: { id: movimiento.id } });

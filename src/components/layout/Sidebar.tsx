@@ -17,8 +17,8 @@ import {
   Folder,
   ClipboardList,
   Wrench,
-  Building,
-  FileText
+  FileText,
+  Bug
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -113,6 +113,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'Estratégico',
       path: '/estrategico',
       icon: 'BarChart3'
+    },
+    {
+      id: 'prueba',
+      title: 'Prueba',
+      path: '/prueba',
+      icon: 'Bug'
     }
   ];
 
@@ -130,7 +136,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     Folder,
     ClipboardList,
     Wrench,
-    FileText
+    FileText,
+    Bug
   } as const;
 
   const handleSignOut = async () => {
@@ -144,16 +151,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  const handlePruebaClick = () => {
+    console.log('🔧 DIAGNÓSTICO: Botón "Prueba" clickeado - Los cambios se están detectando correctamente');
+    alert('✅ DIAGNÓSTICO EXITOSO: El módulo "Prueba" es visible y funcional. Los cambios se están detectando correctamente.');
+  };
+
   const isActiveRoute = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
   return (
-    <div className={`bg-slate-800 text-slate-100 border-r border-slate-700 flex flex-col h-full transition-all duration-300 ${
+    <div className={`bg-emerald-800 text-slate-100 border-r border-emerald-700 flex flex-col h-full transition-all duration-300 ${
       isCollapsed ? 'w-16' : 'w-64'
     } ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-700">
+      <div className="flex items-center justify-between p-4 border-b border-emerald-700">
         {!isCollapsed && (
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -168,7 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         
         <button
           onClick={onToggle}
-          className="p-1.5 rounded-md hover:bg-slate-700 transition-colors duration-200"
+          className="p-1.5 rounded-md hover:bg-emerald-700 transition-colors duration-200"
           title={isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
         >
           {isCollapsed ? (
@@ -181,7 +193,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* User Info */}
       {!isCollapsed && user && (
-        <div className="p-4 border-b border-slate-700">
+        <div className="p-4 border-b border-emerald-700">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
               <span className="text-sm font-medium text-white">
@@ -208,21 +220,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
           
           return (
             <div key={item.id}>
-              <Link
-                to={item.path}
-                className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 hover:bg-slate-700 hover:text-slate-200 ${
-                  isActive ? 'bg-blue-600 text-white' : ''
-                } ${isCollapsed ? 'justify-center px-2' : ''}`}
-                title={isCollapsed ? item.title : undefined}
-              >
-                <IconComponent className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`} />
-                {!isCollapsed && (
-                  <span className="font-medium">{item.title}</span>
-                )}
-                {!isCollapsed && isActive && (
-                  <div className="ml-auto w-2 h-2 bg-sidebar-primary-foreground rounded-full" />
-                )}
-              </Link>
+              {item.id === 'prueba' ? (
+                <button
+                  onClick={handlePruebaClick}
+                  className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 hover:bg-emerald-700 hover:text-slate-200 ${
+                    isActive ? 'bg-blue-600 text-white' : ''
+                  } ${isCollapsed ? 'justify-center px-2' : ''} w-full`}
+                  title={isCollapsed ? item.title : undefined}
+                >
+                  <IconComponent className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`} />
+                  {!isCollapsed && (
+                    <span className="font-medium">{item.title}</span>
+                  )}
+                  {!isCollapsed && isActive && (
+                    <div className="ml-auto w-2 h-2 bg-sidebar-primary-foreground rounded-full" />
+                  )}
+                </button>
+              ) : (
+                <Link
+                  to={item.path}
+                  className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 hover:bg-emerald-700 hover:text-slate-200 ${
+                    isActive ? 'bg-blue-600 text-white' : ''
+                  } ${isCollapsed ? 'justify-center px-2' : ''}`}
+                  title={isCollapsed ? item.title : undefined}
+                >
+                  <IconComponent className={`w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`} />
+                  {!isCollapsed && (
+                    <span className="font-medium">{item.title}</span>
+                  )}
+                  {!isCollapsed && isActive && (
+                    <div className="ml-auto w-2 h-2 bg-sidebar-primary-foreground rounded-full" />
+                  )}
+                </Link>
+              )}
               {/* Company selector only under Incidencias */}
               {!isCollapsed && item.id === 'incidencias' && (
                 <div className="mt-2 ml-2">
@@ -230,11 +260,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setCompanyId('4C')}
-                      className={`px-2 py-1 rounded text-xs border ${companyId==='4C' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-700 text-slate-200 border-slate-600 hover:bg-slate-600'}`}
+                      className={`px-2 py-1 rounded text-xs border ${companyId==='4C' ? 'bg-blue-600 text-white border-blue-500' : 'bg-emerald-700 text-slate-200 border-emerald-600 hover:bg-emerald-600'}`}
                     >4C</button>
                     <button
                       onClick={() => setCompanyId('MANUCAR')}
-                      className={`px-2 py-1 rounded text-xs border ${companyId==='MANUCAR' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-700 text-slate-200 border-slate-600 hover:bg-slate-600'}`}
+                      className={`px-2 py-1 rounded text-xs border ${companyId==='MANUCAR' ? 'bg-blue-600 text-white border-blue-500' : 'bg-emerald-700 text-slate-200 border-emerald-600 hover:bg-emerald-600'}`}
                     >MANUCAR</button>
                   </div>
                 </div>
@@ -245,11 +275,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       {/* Footer Actions */}
-      <div className="p-4 border-t border-slate-700 space-y-2">
+      <div className="p-4 border-t border-emerald-700 space-y-2">
         {/* Settings */}
         <Link
           to="/settings"
-          className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 hover:bg-slate-700 hover:text-slate-200 ${
+          className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 hover:bg-emerald-700 hover:text-slate-200 ${
             isActiveRoute('/settings') ? 'bg-blue-600 text-white' : ''
           } ${isCollapsed ? 'justify-center px-2' : ''}`}
           title={isCollapsed ? 'Configuración' : undefined}

@@ -135,6 +135,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
     }
   };
 
+
   const loadSubcategorias = async () => {
     try {
       const { data, error } = await supabase
@@ -1300,6 +1301,7 @@ const RegistrosRapidos: React.FC<RegistrosRapidosProps> = ({ autoAddRow = false 
             </div>
           </div>
         )}
+
       </div>
     </TableContext.Provider>
   );

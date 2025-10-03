@@ -9,8 +9,8 @@ const corsHeaders = {
 };
 
 const BodySchema = z.object({
-  nombre: z.string().trim().min(1, 'Nombre requerido').max(140),
-  categoria_id: z.string().uuid('UUID inválido')
+  id: z.string().uuid('UUID inválido'),
+  nombre: z.string().trim().min(1, 'Nombre requerido').max(140)
 });
 
 Deno.serve(async (req) => {
@@ -29,14 +29,15 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
+    
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return new Response(JSON.stringify({ error: 'No autorizado' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     
-    const meta: any = user.user_metadata || {};
-    const role = (meta.role || meta.app_role) as string;
     console.log('Usuario:', user.id, 'Email:', user.email);
-    console.log('User metadata:', meta);
-    console.log('Rol detectado:', role);
+    console.log('User metadata:', user.user_metadata);
+    
+    const role = (user.user_metadata as any)?.role;
+    console.log('Rol del usuario:', role);
     
     if (role !== 'admin') {
       console.log('Acceso denegado - rol no es admin');
@@ -44,44 +45,69 @@ Deno.serve(async (req) => {
     }
 
     const json = await req.json();
+    console.log('Datos recibidos:', json);
+    
     const parsed = BodySchema.safeParse(json);
     if (!parsed.success) {
+      console.log('Error de validación:', parsed.error.flatten());
       return new Response(JSON.stringify({ error: 'Validación', details: parsed.error.flatten() }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    const { nombre, categoria_id } = parsed.data;
+    const { id, nombre } = parsed.data;
 
-    // Verificar que la categoría exista y pertenezca al usuario
-    const { data: cat, error: catErr } = await supabase
-      .from('categorias_financieras')
-      .select('id, usuario_id, activa')
-      .eq('id', categoria_id)
+    // Verificar que la subcategoría exista y pertenezca al usuario
+    const { data: sub, error: subErr } = await supabase
+      .from('subcategorias_financieras')
+      .select('id, categoria_id, categorias_financieras!inner(usuario_id)')
+      .eq('id', id)
       .single();
-    if (catErr || !cat) return new Response(JSON.stringify({ error: 'Categoría no encontrada' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    if (cat.usuario_id !== user.id) return new Response(JSON.stringify({ error: 'No autorizado' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    
+    if (subErr) {
+      console.log('Error buscando subcategoría:', subErr);
+      return new Response(JSON.stringify({ error: 'Subcategoría no encontrada', details: subErr.message }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    
+    if (!sub) {
+      return new Response(JSON.stringify({ error: 'Subcategoría no encontrada' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    
+    if (sub.categorias_financieras.usuario_id !== user.id) {
+      return new Response(JSON.stringify({ error: 'No autorizado' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
-    // Duplicados por (categoria_id, nombre)
+    // Verificar duplicados por (categoria_id, nombre) excluyendo la actual
     const { data: dup, error: dupErr } = await supabase
       .from('subcategorias_financieras')
       .select('id')
-      .eq('categoria_id', categoria_id)
+      .eq('categoria_id', sub.categoria_id)
       .ilike('nombre', nombre)
+      .neq('id', id)
       .limit(1);
-    if (dupErr) throw dupErr;
+    
+    if (dupErr) {
+      console.log('Error verificando duplicados:', dupErr);
+      throw dupErr;
+    }
+    
     if (dup && dup.length > 0) {
       return new Response(JSON.stringify({ error: 'Duplicado', message: 'Ya existe una subcategoría con ese nombre en esta categoría.' }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { data: inserted, error } = await supabase
+    const { data: updated, error } = await supabase
       .from('subcategorias_financieras')
-      .insert({ nombre, categoria_id })
-      .select('id, nombre, categoria_id, activa, created_at')
+      .update({ nombre })
+      .eq('id', id)
+      .select('id, nombre, categoria_id, activa, updated_at')
       .single();
-    if (error) throw error;
+    
+    if (error) {
+      console.log('Error actualizando:', error);
+      throw error;
+    }
 
-    return new Response(JSON.stringify({ subcategoria: inserted }), { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    console.log('Subcategoría actualizada exitosamente:', updated);
+    return new Response(JSON.stringify({ subcategoria: updated }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e: any) {
+    console.log('Error general:', e);
     return new Response(JSON.stringify({ error: 'Error interno', details: String(e?.message || e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
-
-

@@ -34,8 +34,17 @@ Deno.serve(async (req) => {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return new Response(JSON.stringify({ error: 'No autorizado' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    const role = (user.user_metadata as any)?.role;
-    if (role !== 'admin') return new Response(JSON.stringify({ error: 'Acceso denegado' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    
+    const meta: any = user.user_metadata || {};
+    const role = (meta.role || meta.app_role) as string;
+    console.log('Usuario:', user.id, 'Email:', user.email);
+    console.log('User metadata:', meta);
+    console.log('Rol detectado:', role);
+    
+    if (role !== 'admin') {
+      console.log('Acceso denegado - rol no es admin');
+      return new Response(JSON.stringify({ error: 'Acceso denegado', details: `Rol actual: ${role}, se requiere: admin` }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     const json = await req.json();
     const parsed = BodySchema.safeParse(json);

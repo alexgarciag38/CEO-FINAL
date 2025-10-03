@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { PencilSquareIcon, TrashIcon, Bars3Icon } from '@heroicons/react/24/outline';
 import { supabase } from '@/lib/supabase';
 import ColorChip from '@/components/ui/ColorChip';
@@ -298,7 +298,7 @@ export const GestionCategorias: React.FC = () => {
       if (error) throw error;
       await loadMetodos(tipoMetodo);
     } catch (e: any) {
-      alert(e.message || 'Error creando subcategoría');
+        alert(e.message || 'Error creando subcategoría');
     }
   };
 
@@ -311,7 +311,7 @@ export const GestionCategorias: React.FC = () => {
       if (error) throw error;
       await loadMetodos(tipoMetodo);
     } catch (e: any) {
-      alert(e.message || 'Error actualizando subcategoría');
+        alert(e.message || 'Error actualizando subcategoría');
     }
   };
 
@@ -322,11 +322,11 @@ export const GestionCategorias: React.FC = () => {
       if (error) throw error;
       await loadMetodos(tipoMetodo);
     } catch (e: any) {
-      alert(e.message || 'Error eliminando subcategoría');
+        alert(e.message || 'Error eliminando subcategoría');
     }
   };
 
-  if (loading) return <div className="p-4">Cargando…</div>;
+  if (loading) return <div className="p-4">Cargando...</div>;
   if (error) return <div className="p-4 text-red-600">{error}</div>;
 
   return (
@@ -336,7 +336,7 @@ export const GestionCategorias: React.FC = () => {
         <h2 className="text-2xl font-semibold text-gray-900">Gestión de Categorías</h2>
         <div className="flex gap-2">
           <button onClick={openSaldoInicial} className="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700 transition-colors">
-            💰 Saldo Inicial
+            ⚙️ Saldo Inicial
           </button>
           <button onClick={openNewCategoria} className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors">
             + Añadir Categoría
@@ -344,7 +344,7 @@ export const GestionCategorias: React.FC = () => {
         </div>
       </div>
 
-      {/* Selectores dobles: Categorías / Métodos */}
+       {/* Selectores dobles: Categorías / Métodos */}
       <div className="flex items-start gap-6">
         <div className="flex flex-col gap-2">
           <span className="text-xs text-gray-500 uppercase tracking-wide">Categorías</span>
@@ -387,10 +387,10 @@ export const GestionCategorias: React.FC = () => {
         </div>
       </div>
 
-      {/* Sección dinámica */}
+       {/* Sección dinámica */}
       {seccion === 'categorias' ? (
         <>
-          {/* Grid de categorías */}
+           {/* Grid de categorías */}
           <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(1, minmax(0, 1fr))' }}>
             <div className="hidden sm:grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1.5rem' }} />
           </div>
@@ -414,7 +414,7 @@ export const GestionCategorias: React.FC = () => {
                 style={draggingId === cat.id ? { opacity: 0.6, transform: 'scale(0.98)', borderColor: hexToRgba(cat.color, 0.8) } as any : { borderColor: hexToRgba(cat.color, 0.5) }}
               >
                 {/* Header tarjeta */}
-                <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3">
                   <button
                     type="button"
                     aria-expanded={isExpanded}
@@ -426,16 +426,16 @@ export const GestionCategorias: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <span className="text-gray-400 cursor-grab active:cursor-grabbing" title="Arrastra para reordenar" draggable onDragStart={() => onDragStart(cat.id, categorias.filter(c => c.tipo === tipoSeleccion).sort((a,b) => (order[a.id] ?? 0) - (order[b.id] ?? 0)).map(c => c.id))} onClick={(e) => e.stopPropagation()}>
                       <Bars3Icon className="h-5 w-5" />
-                    </span>
+                  </span>
                     {isExpanded && (
-                      <button
-                        type="button"
-                        title="Editar categoría"
-                        className="text-gray-500 hover:text-blue-600"
+                  <button
+                    type="button"
+                    title="Editar categoría"
+                    className="text-gray-500 hover:text-blue-600"
                         onClick={(e) => { e.stopPropagation(); setFormNombre(cat.nombre); setFormTipo(cat.tipo); setFormColor(cat.color || '#4A90E2'); setModalOpen({ tipo: 'cat', categoriaId: cat.id }); }}
-                      >
+                  >
                         <PencilSquareIcon className="h-5 w-5" />
-                      </button>
+                  </button>
                     )}
                     <label className="inline-flex items-center gap-2 text-xs text-gray-600">
                       <input type="checkbox" checked={!!cat.activa} disabled={!isExpanded} onChange={async (e) => {
@@ -454,8 +454,8 @@ export const GestionCategorias: React.FC = () => {
                       }} />
                       Activa
                     </label>
-                  </div>
                 </div>
+              </div>
 
                 {/* Lista de subcategorías */}
                 <div className={`space-y-2 text-sm text-gray-700 ${isExpanded ? '' : 'max-h-40 overflow-y-auto pr-1'}`}
@@ -469,15 +469,14 @@ export const GestionCategorias: React.FC = () => {
                           onChange={async (e) => {
                             const nuevo = e.target.value;
                             try {
-                              const { data: { session } } = await supabase.auth.getSession();
-                              if (!session) throw new Error('No autenticado');
-                              const { error } = await supabase.functions.invoke('actualizar-subcategoria', {
-                                headers: { Authorization: `Bearer ${session.access_token}` },
-                                body: { id: sub.id, nombre: nuevo }
-                              });
+                              const { error } = await supabase
+                                .from('subcategorias_financieras')
+                                .update({ nombre: nuevo })
+                                .eq('id', sub.id);
                               if (error) throw error;
                             } catch (err: any) {
-                              console.error(err);
+                              console.error('Error actualizando subcategoría:', err);
+                              alert(err.message || 'Error actualizando subcategoría');
                             }
                           }}
                         />
@@ -488,17 +487,17 @@ export const GestionCategorias: React.FC = () => {
                       )}
                       {isExpanded ? (
                         <div className="flex items-center gap-2 ml-2 text-gray-500 shrink-0">
-                          <button
-                            type="button"
-                            title="Editar subcategoría"
+                      <button
+                        type="button"
+                        title="Editar subcategoría"
                             onClick={() => setEditSub({ id: sub.id, nombre: sub.nombre })}
-                            className="hover:text-blue-600"
-                          >
+                        className="hover:text-blue-600"
+                      >
                             <PencilSquareIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            title="Eliminar subcategoría"
+                      </button>
+                      <button
+                        type="button"
+                        title="Eliminar subcategoría"
                             onClick={async () => {
                               if (!confirm('¿Eliminar esta subcategoría?')) return;
                               const { data: { session } } = await supabase.auth.getSession();
@@ -510,17 +509,17 @@ export const GestionCategorias: React.FC = () => {
                               if (error) { alert('Error eliminando'); return; }
                               await load();
                             }}
-                            className="hover:text-red-600"
-                          >
+                        className="hover:text-red-600"
+                      >
                             <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
+                      </button>
+                    </div>
                       ) : (
                         <div className="w-6 ml-2" />
                       )}
-                    </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
+              </div>
 
                 {isExpanded && (
                   <div className="mt-4" onClick={(e) => e.stopPropagation()}>
@@ -529,6 +528,17 @@ export const GestionCategorias: React.FC = () => {
                 )}
               </div>
             );})}
+            
+            {/* Botón para añadir categoría */}
+            <div className="bg-white rounded-xl shadow-sm border p-4 flex items-center justify-center">
+              <button
+                type="button"
+                className="text-xs px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md"
+                onClick={() => setModalOpen({ tipo: 'cat' })}
+              >
+                + Añadir Categoría
+              </button>
+            </div>
           </div>
         </>
       ) : seccion === 'metodos' ? (
@@ -538,7 +548,7 @@ export const GestionCategorias: React.FC = () => {
               La tabla "metodos_pago_categorias" no existe aún. Ejecuta el SQL de creación de catálogo de métodos con categorías y subcategorías.
             </div>
           ) : loadingMetodos ? (
-            <div className="text-sm text-gray-600">Cargando métodos…</div>
+            <div className="text-sm text-gray-600">Cargando métodos...</div>
           ) : errorMetodos ? (
             <div className="text-sm text-red-600">{errorMetodos}</div>
           ) : (
@@ -563,8 +573,8 @@ export const GestionCategorias: React.FC = () => {
                     <div className="flex items-center gap-2">
                       {isExpanded && (
                         <>
-                          <button
-                            type="button"
+                      <button
+                        type="button"
                             className="text-gray-500 hover:text-blue-600"
                             title="Editar método"
                             onClick={(e) => {
@@ -573,7 +583,7 @@ export const GestionCategorias: React.FC = () => {
                             }}
                           >
                             <PencilSquareIcon className="h-5 w-5" />
-                          </button>
+                      </button>
                           <label className="inline-flex items-center gap-1 text-xs text-gray-600">
                             <input type="checkbox" checked={!!cat.activa} onChange={(e) => actualizarMetodo(cat.id, { activa: e.target.checked })} />
                             Activa
@@ -620,8 +630,8 @@ export const GestionCategorias: React.FC = () => {
                         ) : (
                           <div className="w-6 ml-2" />
                         )}
-                      </div>
-                    ))}
+            </div>
+          ))}
                   </div>
 
                   {isExpanded && (
@@ -649,7 +659,7 @@ export const GestionCategorias: React.FC = () => {
           {noTablaPC ? (
             <div className="bg-white rounded-xl shadow-sm border p-4 text-sm text-gray-600">La tabla "{tipoPC === 'Proveedor' ? 'proveedores' : 'clientes'}" no existe.</div>
           ) : loadingPC ? (
-            <div className="text-sm text-gray-600">Cargando…</div>
+            <div className="text-sm text-gray-600">Cargando...</div>
           ) : errorPC ? (
             <div className="text-sm text-red-600">{errorPC}</div>
           ) : (
@@ -691,9 +701,9 @@ export const GestionCategorias: React.FC = () => {
                     <button type="button" title="Eliminar" className="text-gray-500 hover:text-red-600" onClick={() => eliminarPC(item.id)}>
                       <TrashIcon className="h-5 w-5" />
                     </button>
-                  </div>
-                  )}
-                </div>
+          </div>
+        )}
+      </div>
                 {editPcId === item.id ? (
                   <input
                     className="w-full bg-white border border-blue-300 rounded-md px-2 py-1 focus:border-blue-400 focus:ring-2 focus:ring-blue-200 outline-none min-w-0"
@@ -725,7 +735,7 @@ export const GestionCategorias: React.FC = () => {
           <div className="bg-white p-6 rounded-xl shadow-xl w-[400px] space-y-4" onClick={(e) => e.stopPropagation()} tabIndex={0}>
             <h4 className="text-lg font-semibold text-gray-900">
               {modalOpen.tipo === 'cat' 
-                ? (modalOpen.categoriaId ? 'Editar Categoría' : 'Nueva Categoría') 
+                ? (modalOpen.categoriaId ? 'Editar Categor├¡a' : 'Nueva Categor├¡a') 
                 : modalOpen.tipo === 'sub' 
                   ? 'Nueva Subcategoría' 
                   : 'Configurar Saldo Inicial'}
@@ -735,7 +745,7 @@ export const GestionCategorias: React.FC = () => {
               <div className="space-y-4">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-blue-800">
-                    <span className="text-xl">💰</span>
+                    <span className="text-xl">­ƒÆ░</span>
                     <span className="font-medium">Saldo Inicial de Caja</span>
                   </div>
                   <p className="text-sm text-blue-600 mt-1">
@@ -813,15 +823,28 @@ export const GestionCategorias: React.FC = () => {
                     if (!session) { alert('No autenticado'); return; }
                     const isEdit = !!modalOpen.categoriaId;
                     try {
-                      const { error } = await supabase.functions.invoke(isEdit ? 'actualizar-categoria' : 'crear-categoria', {
+                      console.log('Creando categoría:', { nombre: formNombre, tipo: formTipo, color: formColor });
+                      console.log('Usuario actual:', session.user);
+                      console.log('Rol del usuario:', session.user?.user_metadata?.role);
+                      
+                      const { data, error } = await supabase.functions.invoke(isEdit ? 'actualizar-categoria' : 'crear-categoria', {
                         headers: { Authorization: `Bearer ${session.access_token}` },
                         body: isEdit ? { id: modalOpen.categoriaId, nombre: formNombre, color: formColor } : { nombre: formNombre, tipo: formTipo, color: formColor }
                       });
-                      if (error) throw error;
+                      
+                      console.log('Respuesta Edge Function:', { data, error });
+                      
+                      if (error) {
+                        console.error('Error de Edge Function:', error);
+                        throw new Error(`Error de Edge Function: ${error.message || 'Error desconocido'}`);
+                      }
+                      
                       await load();
                       setModalOpen(null);
                     } catch (e: any) {
-                      alert(e.message || 'Error guardando');
+                      console.error('Error completo creando categoría:', e);
+                      console.error('Stack trace:', e.stack);
+                      alert(`Error: ${e.message || 'Error guardando categoría'}`);
                     }
                   } else if (modalOpen?.tipo === 'sub') {
                     const { data: { session } } = await supabase.auth.getSession();
@@ -868,15 +891,14 @@ export const GestionCategorias: React.FC = () => {
                   const nuevo = editSub.nombre.trim();
                   if (!nuevo) return;
                   try {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (!session) throw new Error('No autenticado');
-                    const { error } = await supabase.functions.invoke('actualizar-subcategoria', {
-                      headers: { Authorization: `Bearer ${session.access_token}` },
-                      body: { id: editSub.id, nombre: nuevo }
-                    });
+                    const { error } = await supabase
+                      .from('subcategorias_financieras')
+                      .update({ nombre: nuevo })
+                      .eq('id', editSub.id);
                     if (error) throw error;
                     await load();
                   } catch (e: any) {
+                    console.error('Error actualizando subcategoría:', e);
                     alert(e.message || 'Error guardando');
                   }
                   setEditSub(null);
@@ -894,7 +916,7 @@ export const GestionCategorias: React.FC = () => {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-xl shadow-xl w-[380px] space-y-4" onClick={(e) => e.stopPropagation()}>
             <h4 className="text-lg font-semibold text-gray-900">
-              {metModal.tipo === 'met-cat' ? 'Nueva Categoría de Método' : 'Nueva Subcategoría de Método'}
+              {metModal.tipo === 'met-cat' ? 'Nueva Categor├¡a de M├®todo' : 'Nueva Subcategoría de M├®todo'}
             </h4>
             <label className="block text-sm font-medium text-gray-700">
               Nombre
@@ -976,14 +998,14 @@ export const GestionCategorias: React.FC = () => {
               }}>Guardar</button>
             </div>
           </div>
-        </div>
-      )}
+          </div>
+        )}
 
       {/* Modal editar método (nombre, color, activa) */}
       {editMetodo && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-xl shadow-xl w-[400px] space-y-4" onClick={(e) => e.stopPropagation()}>
-            <h4 className="text-lg font-semibold text-gray-900">Editar Método</h4>
+            <h4 className="text-lg font-semibold text-gray-900">Editar M├®todo</h4>
             <label className="block text-sm font-medium text-gray-700">
               Nombre
               <input
@@ -1028,10 +1050,11 @@ export const GestionCategorias: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+      </div>
       )}
     </div>
   );
 };
+
 
 
