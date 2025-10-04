@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
   user_id UUID NOT NULL DEFAULT auth.uid(),
   name TEXT NOT NULL,
   email TEXT,
+  company_id TEXT,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   external_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL
 );
@@ -50,6 +51,7 @@ CREATE TABLE IF NOT EXISTS public.incident_types (
   name TEXT NOT NULL,
   description TEXT,
   color_hex TEXT NOT NULL DEFAULT '#3B82F6',
+  company_id TEXT,
   is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 

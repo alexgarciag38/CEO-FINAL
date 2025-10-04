@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,17 +18,22 @@ export const IncidentsConfig: React.FC = () => {
   const [typeDesc, setTypeDesc] = useState('');
   const [typeColor, setTypeColor] = useState<string>('#3B82F6');
   const [employees, setEmployees] = useState<any[]>([]);
+  const [showInactive, setShowInactive] = useState(false);
   const [types, setTypes] = useState<any[]>([]);
   const [editEmp, setEditEmp] = useState<any | null>(null);
   const [editType, setEditType] = useState<any | null>(null);
   const [editEmpOpen, setEditEmpOpen] = useState(false);
   const [editTypeOpen, setEditTypeOpen] = useState(false);
   const [typeColorWarning, setTypeColorWarning] = useState<string | null>(null);
+  const [deleteEmp, setDeleteEmp] = useState<any | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmName, setConfirmName] = useState('');
+  const [hardDelete, setHardDelete] = useState(false);
 
   const load = async () => {
     try {
       const [e, t] = await Promise.all([
-        invoke('employees-get', { body: { company_id: companyId } }),
+        invoke('employees-get', { body: { company_id: companyId, all: showInactive } }),
         invoke('incident-types-get', { body: { company_id: companyId } })
       ]);
       setEmployees(e?.items ?? []);
@@ -38,7 +44,7 @@ export const IncidentsConfig: React.FC = () => {
     }
   };
 
-  useEffect(() => { load(); }, [companyId]);
+  useEffect(() => { load(); }, [companyId, showInactive]);
 
   const addEmployee = async () => {
     if (!empName.trim()) {
@@ -198,7 +204,7 @@ export const IncidentsConfig: React.FC = () => {
           <CardTitle className="text-blue-700">Gestión de Empleados</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2 mb-4">
+          <div className="flex items-center gap-3 mb-4">
             <Input 
               value={empName} 
               onChange={e => setEmpName(e.target.value)} 
@@ -216,6 +222,14 @@ export const IncidentsConfig: React.FC = () => {
             >
               Añadir
             </Button>
+            <label className="flex items-center gap-2 text-sm ml-auto select-none">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+              />
+              Mostrar inactivos
+            </label>
           </div>
           
           <ul className="divide-y">
@@ -282,6 +296,14 @@ export const IncidentsConfig: React.FC = () => {
                   >
                     {e.is_active ? 'Desactivar' : 'Activar'}
                   </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => { setDeleteEmp(e); setConfirmName(''); setHardDelete(false); setDeleteOpen(true); }}
+                    className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 active:scale-95"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </li>
             ))}
@@ -291,6 +313,57 @@ export const IncidentsConfig: React.FC = () => {
           </ul>
         </CardContent>
       </Card>
+
+      {/* Diálogo de eliminación */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Eliminar empleado</DialogTitle>
+            <DialogDescription>
+              Esta acción {hardDelete ? 'eliminará permanentemente' : 'desactivará'} al empleado. Para confirmar, escribe el nombre exactamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-sm">
+              <div><span className="text-gray-500">Nombre:</span> <span className="font-medium">{deleteEmp?.name || '—'}</span></div>
+              <div><span className="text-gray-500">Email:</span> <span className="font-medium">{deleteEmp?.email || '—'}</span></div>
+              <div><span className="text-gray-500">Empresa:</span> <span className="font-medium">{deleteEmp?.company_id || 'SIN_EMPRESA'}</span></div>
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor="confirm-name">Escribe el nombre para confirmar</Label>
+              <Input id="confirm-name" value={confirmName} onChange={(e) => setConfirmName(e.target.value)} placeholder={deleteEmp?.name || ''} />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-red-700">
+              <input type="checkbox" checked={hardDelete} onChange={(e) => setHardDelete(e.target.checked)} />
+              Eliminar definitivamente (no reversible)
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancelar</Button>
+            <Button 
+              className={`bg-red-600 hover:bg-red-700 text-white ${confirmName !== (deleteEmp?.name || '') ? 'opacity-60 cursor-not-allowed' : ''}`}
+              disabled={confirmName !== (deleteEmp?.name || '')}
+              onClick={async () => {
+                if (!deleteEmp) return;
+                try {
+                  const res = await invoke('employees-delete', { body: { id: deleteEmp.id, hard: hardDelete } });
+                  if ((res as any)?.error) throw new Error((res as any).error);
+                  toast.success(hardDelete ? 'Empleado eliminado permanentemente' : 'Empleado eliminado');
+                  setDeleteOpen(false);
+                  setDeleteEmp(null);
+                  setConfirmName('');
+                  setHardDelete(false);
+                  await load();
+                } catch (err) {
+                  toast.error('No se pudo eliminar: ' + (err as Error).message);
+                }
+              }}
+            >
+              Confirmar eliminación
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Tipos de Incidencia */}
       <Card>

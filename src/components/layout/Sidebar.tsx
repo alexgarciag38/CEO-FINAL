@@ -161,11 +161,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div className={`bg-emerald-800 text-slate-100 border-r border-emerald-700 flex flex-col h-full transition-all duration-300 ${
+    <div className={`bg-blue-900 text-slate-100 border-r border-blue-800 flex flex-col h-full transition-all duration-300 ${
       isCollapsed ? 'w-16' : 'w-64'
     } ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-emerald-700">
+      <div className="flex items-center justify-between p-4 border-b border-blue-800">
         {!isCollapsed && (
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -180,7 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         
         <button
           onClick={onToggle}
-          className="p-1.5 rounded-md hover:bg-emerald-700 transition-colors duration-200"
+          className="p-1.5 rounded-md hover:bg-blue-800 transition-colors duration-200"
           title={isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
         >
           {isCollapsed ? (
@@ -193,7 +193,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* User Info */}
       {!isCollapsed && user && (
-        <div className="p-4 border-b border-emerald-700">
+        <div className="p-4 border-b border-blue-800">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
               <span className="text-sm font-medium text-white">
@@ -223,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {item.id === 'prueba' ? (
                 <button
                   onClick={handlePruebaClick}
-                  className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 hover:bg-emerald-700 hover:text-slate-200 ${
+                  className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 hover:bg-blue-800 hover:text-slate-200 ${
                     isActive ? 'bg-blue-600 text-white' : ''
                   } ${isCollapsed ? 'justify-center px-2' : ''} w-full`}
                   title={isCollapsed ? item.title : undefined}
@@ -239,7 +239,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ) : (
                 <Link
                   to={item.path}
-                  className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 hover:bg-emerald-700 hover:text-slate-200 ${
+                  className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 hover:bg-blue-800 hover:text-slate-200 ${
                     isActive ? 'bg-blue-600 text-white' : ''
                   } ${isCollapsed ? 'justify-center px-2' : ''}`}
                   title={isCollapsed ? item.title : undefined}
@@ -260,11 +260,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setCompanyId('4C')}
-                      className={`px-2 py-1 rounded text-xs border ${companyId==='4C' ? 'bg-blue-600 text-white border-blue-500' : 'bg-emerald-700 text-slate-200 border-emerald-600 hover:bg-emerald-600'}`}
+                      className={`px-2 py-1 rounded text-xs border ${companyId==='4C' ? 'bg-blue-600 text-white border-blue-500' : 'bg-blue-800 text-slate-200 border-blue-700 hover:bg-blue-700'}`}
                     >4C</button>
                     <button
                       onClick={() => setCompanyId('MANUCAR')}
-                      className={`px-2 py-1 rounded text-xs border ${companyId==='MANUCAR' ? 'bg-blue-600 text-white border-blue-500' : 'bg-emerald-700 text-slate-200 border-emerald-600 hover:bg-emerald-600'}`}
+                      className={`px-2 py-1 rounded text-xs border ${companyId==='MANUCAR' ? 'bg-blue-600 text-white border-blue-500' : 'bg-blue-800 text-slate-200 border-blue-700 hover:bg-blue-700'}`}
                     >MANUCAR</button>
                   </div>
                 </div>
@@ -275,11 +275,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       {/* Footer Actions */}
-      <div className="p-4 border-t border-emerald-700 space-y-2">
+      <div className="p-4 border-t border-blue-800 space-y-2">
         {/* Settings */}
         <Link
           to="/settings"
-          className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 hover:bg-emerald-700 hover:text-slate-200 ${
+          className={`flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 hover:bg-blue-800 hover:text-slate-200 ${
             isActiveRoute('/settings') ? 'bg-blue-600 text-white' : ''
           } ${isCollapsed ? 'justify-center px-2' : ''}`}
           title={isCollapsed ? 'Configuración' : undefined}
